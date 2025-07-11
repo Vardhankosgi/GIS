@@ -200,7 +200,12 @@ for msg in chat_history:
             with st.container():
                 col_img, col_summary = st.columns([1, 1])
                 with col_img:
-                    st.image(Image.open(msg["image"]), use_container_width=True)
+                    image_path = msg.get("image")
+                    if image_path and os.path.exists(image_path):
+                        st.image(Image.open(image_path), use_container_width=True)
+                    else:
+                        st.error("❌ Image not found or invalid path.")
+
                 with col_summary:
                     st.markdown(f"<span style='font-size:14px'>{msg['summary']}</span>", unsafe_allow_html=True)
 
