@@ -198,14 +198,19 @@ for msg in chat_history:
 
         elif msg["type"] == "image_summary":
             st.markdown(icon, unsafe_allow_html=True)
-            with st.container():
-                col_img, col_summary = st.columns([1, 1])
-                with col_img:
-                    image_path = msg.get("image")
-                    if image_path and os.path.exists(image_path):
+            image_path = msg.get("image")
+        
+            if isinstance(image_path, str) and os.path.exists(image_path):
+                with st.container():
+                    col_img, col_summary = st.columns([1, 1])
+                    with col_img:
                         st.image(Image.open(image_path), use_container_width=True)
-                    else:
-                        st.error("❌ Image not found or invalid path.")
+                    with col_summary:
+                        st.markdown(f"<span style='font-size:14px'>{msg['summary']}</span>", unsafe_allow_html=True)
+        
+            else:
+                st.error(f"❌ Could not load image from path: `{image_path}`. Please check if it exists.")
+
 
                 with col_summary:
                     st.markdown(f"<span style='font-size:14px'>{msg['summary']}</span>", unsafe_allow_html=True)
