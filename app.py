@@ -20,7 +20,6 @@ image_map = {
     "assam_flood_map": "assets/assam_flood_map.png",
     "barpeta_flood": "assets/flood_map_kochi.png",
     "dimapur_landslide": "assets/dimapur_landslide_map.png",
-    "rainfall_july": "assets/southplains_loop_20190707_2328Z.gif",
     "traffic": "assets/image.png",
 }
 
@@ -201,6 +200,10 @@ for msg in chat_history:
             image_path = msg.get("image")
         
             if isinstance(image_path, str) and os.path.exists(image_path):
+                for key, path in image_map.items():
+                    if not os.path.exists(path):
+                        st.warning(f"⚠️ Image missing or misnamed: key = {key}, path = {path}")
+
                 with st.container():
                     col_img, col_summary = st.columns([1, 1])
                     with col_img:
