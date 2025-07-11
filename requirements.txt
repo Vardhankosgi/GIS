@@ -3,6 +3,5 @@ folium==0.14.0
 geopandas==0.13.2
 osmnx==1.5.1
 shapely==2.0.2
-pandas==2.1.4
 speechrecognition==3.10.0
 streamlit-folium==0.15.0
