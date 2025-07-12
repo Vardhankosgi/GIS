@@ -74,9 +74,9 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
         if region.lower() == "india":
             zoom_level = 5
         elif region.lower() in ["world", "global"]:
-            zoom_level = 8
+            zoom_level = 10
         else:
-            zoom_level = 9  # Closer zoom for country-specific views
+            zoom_level = 12  # Closer zoom for country-specific views
 
         st.info(f"📍 Displaying map centered on {region.title()}.")
     except Exception:
