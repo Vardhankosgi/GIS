@@ -12,6 +12,7 @@ import av
 import io
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import tempfile
+import random
 
 # --- Local GeoJSON data for demonstration (now with Points) ---
 FLOOD_GEOJSON = {
@@ -255,56 +256,49 @@ def show_global_hazard_dashboard(focus="all"):
         )
     m.to_streamlit(height=600)
 
+
 def static_bot_response(message):
     msg = message.lower().strip()
 
-    # 1. Friendly text responses
+    # 1. Friendly responses
     for key in friendly_responses:
         if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
             return {"type": "text", "content": friendly_responses[key]}
 
-    # 2. Place-based POIs
+    # 2. POIs
     for keyword, tags in updated_keywords.items():
-        if re.search(rf"\b{keyword}s?\b", msg):  # Accept both singular and plural
-            region = "world"
+        if re.search(rf"\b{keyword}s?\b", msg):
             match = re.search(rf"\b{keyword}s?\b\s*(in\s+([a-z\s]+))?", msg)
-            if match and match.group(2):
-                region = match.group(2).strip()
+            region = match.group(2).strip() if match and match.group(2) else "world"
             return {
                 "type": "dynamic_map",
                 "query": f"{keyword} in {region}",
                 "tags": tags
             }
 
-
+    # 3. Disaster Detection
     disaster_aliases = {
-        "flood": [r"floods?", r"flooding"],
-        "landslide": [r"land[\s\-]?slides?", r"mudslides?"],
-        "fire": [r"(forest\s*)?fires?", r"wild[\s\-]?fires?"]
+        "flood": [r"\bflood(?:s|ing)?\b"],
+        "landslide": [r"\bland[\s\-]?slides?\b", r"\bmudslides?\b"],
+        "fire": [r"\b(forest\s*)?fires?\b", r"\bwild[\s\-]?fires?\b"]
     }
-    
+
+    known_regions = ["India", "China", "Russia", "Brazil", "USA", "Indonesia", "Nepal", "Bangladesh", "Pakistan"]
+    default_regions = ["world", "global"]
+
     for disaster, patterns in disaster_aliases.items():
         for pattern in patterns:
-            # Try extracting a region
-            region_match = re.search(rf"{pattern}(?:\s+\w+){{0,5}}\s+in\s+([a-zA-Z\s]+)", msg)
-            if region_match:
-                region = region_match.group(1).strip()
-            else:
-                simple_match = re.search(rf"\b{pattern}\b", msg)
-                if simple_match:
-                    region = "world"
-                else:
-                    continue  # No match, try next pattern
-    
-            return {
-                "type": "disaster_map",
-                "disaster": disaster,
-                "region": region,
-                "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.capitalize()}"
-            }
+            match = re.search(rf"{pattern}(?:.*?\s+in\s+([a-zA-Z\s]+))?", msg)
+            if match:
+                region = match.group(1).strip() if match.lastindex and match.group(1) else random.choice(known_regions)
+                return {
+                    "type": "disaster_map",
+                    "disaster": disaster,
+                    "region": region,
+                    "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.title()}"
+                }
 
-
-    # 4. Global hazard view
+    # 4. Global dashboard
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
@@ -314,26 +308,30 @@ def static_bot_response(message):
     # 5. Help
     if "help" in msg or "question" in msg:
         help_text = """
-**Here's what I am capable of answering:**
-
---1. For Finding Local Places--
-* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map.
-* Keywords: hospital, school, clinic, atm, restaurant
-
---2. For Hazard & Disaster Information--
-* What it does: Displays maps and data tables for specific hazards.
-* Keywords: flood, landslide, fire, global hazard
-
---3. For General Interaction--
-* What it does: Provides friendly responses and general information about the bot.
-* Keywords: hi, hello, how can you help, what can you do
-"""
+        **Here's what I am capable of answering:**
+        
+        --1. For Finding Local Places--
+        * What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map.
+        * Keywords: hospital, school, clinic, atm, restaurant
+        
+        --2. For Hazard & Disaster Information--
+        * What it does: Displays maps and data tables for specific hazards.
+        * Keywords: flood, landslide, fire, global hazard
+        
+        --3. For General Interaction--
+        * What it does: Provides friendly responses and general information about the bot.
+        * Keywords: hi, hello, how can you help, what can you do
+        """
         return {"type": "text", "content": help_text}
 
-    # 6. Default fallback
+    # 6. Fallback: Random disaster and region
+    fallback_disaster = random.choice(list(disaster_aliases.keys()))
+    fallback_region = random.choice(known_regions + default_regions)
     return {
-        "type": "text",
-        "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, or POIs like schools or hospitals."
+        "type": "disaster_map",
+        "disaster": fallback_disaster,
+        "region": fallback_region,
+        "content": f"🗺️ {fallback_disaster.capitalize()} Hazard Zones in {fallback_region.title()}"
     }
 
 def get_osm_map_from_query(query, tags):
