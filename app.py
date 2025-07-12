@@ -153,7 +153,8 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             """
             m.add_child(folium.map.LayerControl())
             
-            for feature in FLOOD_GEOJSON["features"]:
+            for feature in LANDSLIDE_GEOJSON["features"]:
+
                 lon, lat = feature["geometry"]["coordinates"]
                 risk_level = feature["properties"]["risk_level"]
                 folium.CircleMarker(
@@ -163,7 +164,8 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
                     weight=1,
                     fill_color=color_map[risk_level],
                     fill_opacity=0.7,
-                    tooltip=f"{risk_level} Flood Risk"
+                    tooltip=f"{risk_level} Landslide Risk"
+
                 ).add_to(m)
             
             m.get_root().html.add_child(folium.Element(legend_html))
@@ -260,34 +262,43 @@ def show_global_hazard_dashboard(focus="all"):
 
 
 def static_bot_response(message):
-    msg = message.lower().strip()
 
-    normalized_msg = re.sub(r'[^\w\s]', '', msg.lower().strip())
-    
+    msg = message.lower().strip()
+    normalized_msg = re.sub(r'[^\w\s]', '', msg)
+
+    # 1. Define known and fallback regions early
+    known_regions = [
+        "india", "china", "russia", "brazil", "usa", "indonesia",
+        "nepal", "bangladesh", "pakistan", "himachal pradesh",
+        "kerala", "kochi", "itahari"
+    ]
+    default_regions = ["world", "global"]
+
+    # 2. Friendly greetings and help
     friendly_variants = {
         "hi": ["hi", "hii", "hey", "hello", "heyy"],
         "how are you": ["how are you", "how r u", "how are u"],
         "how can you help": ["how can you help", "what can you do"],
         "thanks": ["thanks", "thank you", "thx"]
     }
-    
     for key, variants in friendly_variants.items():
         for phrase in variants:
             if phrase in normalized_msg:
                 return {"type": "text", "content": friendly_responses.get(key)}
 
-
-    # 2. POIs
+    # 3. POIs (schools, hospitals, etc.)
     for keyword, tags in updated_keywords.items():
         if re.search(rf"\b{keyword}s?\b", msg):
             match = re.search(rf"\b{keyword}s?\b\s*(in\s+([a-z\s]+))?", msg)
-            region = match.group(2).strip() if match and match.group(2) else "world"
+            region = match.group(2).strip().lower() if match and match.group(2) else "world"
+
             return {
                 "type": "dynamic_map",
                 "query": f"{keyword} in {region}",
                 "tags": tags
             }
 
+    # 4. Disaster aliases
     disaster_aliases = {
         "flood": [r"\bflood(?:s|ing)?\b"],
         "landslide": [
@@ -302,15 +313,11 @@ def static_bot_response(message):
         ]
     }
 
-    known_regions = ["India", "China", "Russia", "Brazil", "USA", "Indonesia", "Nepal", "Bangladesh", "Pakistan"]
-    default_regions = ["world", "global"]
-
     for disaster, patterns in disaster_aliases.items():
         for pattern in patterns:
             match = re.search(rf"{pattern}(?:.*?\s+in\s+([a-zA-Z\s]+))?", msg)
             if match:
                 region = match.group(1).strip().lower() if match.lastindex and match.group(1) else random.choice(known_regions)
-
                 return {
                     "type": "disaster_map",
                     "disaster": disaster,
@@ -318,14 +325,14 @@ def static_bot_response(message):
                     "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.title()}"
                 }
 
-    # 4. Global dashboard
+    # 5. Global dashboard
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
             "content": "🌐 Global Hazard Map"
         }
 
-    # 5. Help
+    # 6. Help intent
     if "help" in msg or "question" in msg:
         help_text = """
         **Here's what I am capable of answering:**
@@ -344,7 +351,7 @@ def static_bot_response(message):
         """
         return {"type": "text", "content": help_text}
 
-    # 6. Fallback: Random disaster and region
+    # 7. Fallback
     fallback_disaster = random.choice(list(disaster_aliases.keys()))
     fallback_region = random.choice(known_regions + default_regions)
     return {
