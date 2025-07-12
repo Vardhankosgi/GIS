@@ -8,41 +8,53 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 
-def show_disaster_map(disaster_type: str):
+def show_disaster_map(disaster_type: str, region: str = "india"):
+    import leafmap.foliumap as leafmap
 
+    # Add more country-specific bounding boxes as needed
     bbox = {
+        "india": [8.0, 68.0, 37.0, 97.0],
         "assam": [26.2, 89.7, 27.2, 93.6],
         "himachal": [31.0, 76.5, 32.7, 78.7],
-        "india": [8, 68, 37, 97],
+        "nepal": [26.3, 80.0, 30.5, 88.2],
+        "bangladesh": [20.5, 88.0, 26.5, 92.5],
+        "pakistan": [23.6, 60.9, 36.8, 77.0],
+        "sri lanka": [5.9, 79.3, 9.8, 82.0],
     }
+
+    # Fallback region if unknown
+    region_key = region.lower()
+    if region_key not in bbox:
+        region_key = "india"
 
     layer_defs = {
         "flood": {
             "url": "https://sedac.ciesin.columbia.edu/geoserver/wms",
             "layer": "ndh:ndh-flood-hazard-frequency-distribution",
-            "name": "Flood Hazard",
-            "region": "assam"
+            "name": "Flood Hazard"
         },
         "landslide": {
             "url": "https://sedac.ciesin.columbia.edu/geoserver/wms",
             "layer": "ndh:ndh-landslide-susceptibility-distribution",
-            "name": "Landslide Hazard",
-            "region": "himachal"
+            "name": "Landslide Hazard"
         },
         "fire": {
             "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
             "layer": "MODIS_Terra_Thermal_Anomalies_Day",
-            "name": "Active Fires (NASA)",
-            "region": "india"
+            "name": "Active Fires (NASA)"
         }
     }
 
-    hazard = layer_defs[disaster_type]
-    m = leafmap.Map(center=[
-        (bbox[hazard["region"]][1] + bbox[hazard["region"]][3]) / 2,
-        (bbox[hazard["region"]][0] + bbox[hazard["region"]][2]) / 2],
-        zoom=6
-    )
+    hazard = layer_defs.get(disaster_type)
+    if hazard is None:
+        st.error("❌ Unknown disaster type.")
+        return
+
+    bounds = bbox[region_key]
+    center_lat = (bounds[0] + bounds[2]) / 2
+    center_lon = (bounds[1] + bounds[3]) / 2
+
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=6)
 
     m.add_wms_layer(
         url=hazard["url"],
@@ -52,7 +64,7 @@ def show_disaster_map(disaster_type: str):
         transparent=True
     )
 
-    st.markdown(f"### 🗺️ {hazard['name']} Map ({hazard['region'].capitalize()})")
+    st.markdown(f"### 🗺️ {hazard['name']} Map ({region_key.capitalize()})")
     m.to_streamlit(height=600)
 
 
@@ -186,19 +198,19 @@ def static_bot_response(message):
             }
 
     # 🎯 WMS-Based Disaster Map Triggers
-    if "flood" in msg and "assam" in msg:
+    if "flood" in  msg:
         return {
             "type": "disaster_map",
             "disaster": "flood",
             "content": "🌊 Flood Hazard Zones in Assam"
         }
-    elif "landslide" in msg and "himachal" in msg:
+    elif "landslide" in  msg:
         return {
             "type": "disaster_map",
             "disaster": "landslide",
             "content": "⛰️ Landslide Risk in Himachal Pradesh"
         }
-    elif "fire" in msg or "forest fire" in msg:
+    elif "fire" in  msg:
         return {
             "type": "disaster_map",
             "disaster": "fire",
@@ -319,7 +331,8 @@ for msg in chat_history:
             elif msg["type"] == "disaster_map":
                 st.markdown(icon, unsafe_allow_html=True)
                 st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
-                show_disaster_map(msg["disaster"])
+                show_disaster_map(msg["disaster"], msg.get("region", "india"))
+
 
             show_global_hazard_dashboard(hazard_type)
             st.markdown(f"<span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
