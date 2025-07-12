@@ -9,9 +9,7 @@ from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 
 def show_disaster_map(disaster_type: str, region: str = "india"):
-    import leafmap.foliumap as leafmap
 
-    # Add more country-specific bounding boxes as needed
     bbox = {
         "india": [8.0, 68.0, 37.0, 97.0],
         "assam": [26.2, 89.7, 27.2, 93.6],
@@ -22,50 +20,42 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
         "sri lanka": [5.9, 79.3, 9.8, 82.0],
     }
 
-    # Fallback region if unknown
     region_key = region.lower()
-    if region_key not in bbox:
-        region_key = "india"
-
-    layer_defs = {
-        "flood": {
-            "url": "https://sedac.ciesin.columbia.edu/geoserver/wms",
-            "layer": "ndh:ndh-flood-hazard-frequency-distribution",
-            "name": "Flood Hazard"
-        },
-        "landslide": {
-            "url": "https://sedac.ciesin.columbia.edu/geoserver/wms",
-            "layer": "ndh:ndh-landslide-susceptibility-distribution",
-            "name": "Landslide Hazard"
-        },
-        "fire": {
-            "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
-            "layer": "MODIS_Terra_Thermal_Anomalies_Day",
-            "name": "Active Fires (NASA)"
-        }
-    }
-
-    hazard = layer_defs.get(disaster_type)
-    if hazard is None:
-        st.error("❌ Unknown disaster type.")
-        return
-
-    bounds = bbox[region_key]
+    bounds = bbox.get(region_key, bbox["india"])
     center_lat = (bounds[0] + bounds[2]) / 2
     center_lon = (bounds[1] + bounds[3]) / 2
 
-    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.Positron")
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.DarkMatter")
 
+    if disaster_type == "flood":
+        m.add_wms_layer(
+            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
+            layers="ndh:ndh-flood-hazard-frequency-distribution",
+            name="🌊 Flood Zones (Color)",
+            format="image/png",
+            transparent=True
+        )
+    elif disaster_type == "landslide":
+        m.add_wms_layer(
+            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
+            layers="ndh:ndh-landslide-susceptibility-distribution",
+            name="⛰️ Landslide Zones",
+            format="image/png",
+            transparent=True
+        )
+    elif disaster_type == "fire":
+        m.add_wms_layer(
+            url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
+            layers="MODIS_Terra_Thermal_Anomalies_Day",
+            name="🔥 Forest Fires (NASA MODIS)",
+            format="image/png",
+            transparent=True
+        )
+    else:
+        st.error("❌ Unknown disaster type.")
+        return
 
-    m.add_wms_layer(
-        url=hazard["url"],
-        layers=hazard["layer"],
-        name=hazard["name"],
-        format="image/png",
-        transparent=True
-    )
-
-    st.markdown(f"### 🗺️ {hazard['name']} Map ({region_key.capitalize()})")
+    st.markdown(f"### 🗺️ {disaster_type.capitalize()} Risk Map ({region_key.capitalize()})")
     m.to_streamlit(height=600)
 
 
@@ -187,12 +177,10 @@ updated_keywords = {
 def static_bot_response(message):
     msg = message.lower().strip()
 
-    # Match exact friendly keywords
     for key in friendly_responses:
         if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
             return {"type": "text", "content": friendly_responses[key]}
 
-    # POI map queries (school, hospital, etc.)
     for keyword, tags in updated_keywords.items():
         if keyword in msg and " in " in msg:
             return {
@@ -201,68 +189,49 @@ def static_bot_response(message):
                 "tags": tags
             }
 
-    # 🌐 Global Hazard Map Triggers
-    if "global" in msg and ("hazard" in msg or "map" in msg):
+    # 🌍 Global Hazard Dashboard
+    if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
-            "content": "🌐 Global Hazard Overview"
-        }
-    elif "global" in msg and "fire" in msg:
-        return {
-            "type": "global_hazard_map",
-            "content": "🔥 Global Fire Risk Map"
-        }
-    elif "global" in msg and "flood" in msg:
-        return {
-            "type": "global_hazard_map",
-            "content": "🌊 Global Flood Hazard Map"
-        }
-    elif "global" in msg and "landslide" in msg:
-        return {
-            "type": "global_hazard_map",
-            "content": "⛰️ Global Landslide Risk Map"
+            "content": "🌐 Global Hazard Map"
         }
 
-    # 🗺️ Disaster maps by keyword
+    # 🌊 Specific Hazard Types
     if "flood" in msg:
         return {
             "type": "disaster_map",
             "disaster": "flood",
-            "content": "🌊 Flood Hazard Zones in Assam"
+            "content": "🌊 Flood Hazard Zones in India"
         }
     elif "landslide" in msg:
         return {
             "type": "disaster_map",
             "disaster": "landslide",
-            "content": "⛰️ Landslide Risk in Himachal Pradesh"
+            "content": "⛰️ Landslide Hazard Zones in India"
         }
-    elif "fire" in msg:
+    elif "fire" in msg or "forest fire" in msg:
         return {
             "type": "disaster_map",
             "disaster": "fire",
-            "content": "🔥 Active Forest Fires across India"
+            "content": "🔥 Forest Fire Risk Zones in India"
         }
 
-    # ❓ Help / Suggestions
-    elif "help" in msg or "question" in msg:
+    # Help / Suggestions
+    if "help" in msg or "question" in msg:
         return {
             "type": "question",
             "questions": [
-                "Where are the forest fire zones in India?",
-                "Show me landslide risk areas in Himachal.",
-                "Where are floods in Assam?",
-                "Show rainfall intensity for July.",
-                "Show traffic zones in India.",
-                "Show hospitals in Kathmandu.",
-                "Show schools in Itahari.",
-                "Show global hazard map"
+                "Show global hazard map",
+                "Show flood risk areas",
+                "Where are forest fires?",
+                "Landslide-prone regions in Himachal?",
+                "Show schools in Kathmandu"
             ]
         }
 
-    # Fallback generic text
     return {
         "type": "text",
-        "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, traffic, or POIs like clinics or schools."
+        "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, or POIs like schools or hospitals."
     }
 
 
