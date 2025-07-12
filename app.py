@@ -385,11 +385,14 @@ for msg in chat_history:
             
             map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
             if map_obj:
-                map_col, table_col = st.columns([7, 3])
+                map_col, table_col = st.columns([1, 1])  
+
                 with map_col:
                     st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
-                    st_folium(map_obj, key=f"map_{chat_id}_disaster_{chat_history.index(msg)}", height=600, use_container_width=True)
+                    st_folium(map_obj, height=500, use_container_width=True)
+                
                 with table_col:
+                    st.markdown(f"### 📊 {msg['disaster'].capitalize()} Summary Table")
                     show_disaster_summary_table(msg["disaster"])
 
 # ------------------- Input Field -------------------
@@ -419,6 +422,14 @@ class AudioProcessor(AudioProcessorBase):
             self.transcribed = f"❌ Could not understand: {e}"
         return frame
 
+# ------------------- Browser-Based Voice Input ------------------
+
+st.markdown("### 🎤 Use the microphone here to ask your question")
+
+mic_col1, mic_col2, mic_col3 = st.columns([4, 1, 4])
+with mic_col2:
+    st.markdown("<div style='text-align: center;'>🎙️</div>", unsafe_allow_html=True)
+
 ctx = webrtc_streamer(
     key="speech",
     mode=WebRtcMode.SENDONLY,
@@ -426,6 +437,16 @@ ctx = webrtc_streamer(
     media_stream_constraints={"audio": True, "video": False},
     async_processing=True,
 )
+
+if ctx and ctx.state.playing:
+    result = ctx.audio_processor.transcribed if ctx.audio_processor else None
+    if result:
+        st.success(f"🗣️ You said: {result}")
+        handle_user_input(result)
+        ctx.audio_processor.transcribed = None
+        st.rerun()
+elif ctx and not ctx.state.playing:
+    st.warning("🔇 Waiting for microphone permission. Please allow access to the mic in your browser.")
 
 
 if ctx and ctx.audio_processor:
