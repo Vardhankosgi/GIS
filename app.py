@@ -379,24 +379,29 @@ for msg in chat_history:
                 with table_col:
                     show_disaster_summary_table(msg["disaster"])
 
-user_input = st.chat_input("Type your question here...")
-if user_input:
-    handle_user_input(user_input)
-    st.rerun()
+st.markdown("---")
+st.markdown("🎤 Or use your voice:")
+if st.button("🎤 Start Voice Input"):
+    try:
+        recognizer = sr.Recognizer()
 
-st.markdown("🎧 Or upload an audio file (WAV only):")
-audio_file = st.file_uploader("Upload your voice query", type=["wav"])
-
-if audio_file is not None:
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(audio_file) as source:
-        audio_data = recognizer.record(source)
-        try:
-            voice_text = recognizer.recognize_google(audio_data)
-            st.success(f"🗣️ Detected voice: `{voice_text}`")
-            handle_user_input(voice_text)
-            st.rerun()
-        except sr.UnknownValueError:
-            st.error("🤷 Could not understand the audio.")
-        except sr.RequestError as e:
-            st.error(f"⚠️ Error with speech recognition: {e}")
+        # Check if running in a supported OS environment
+        if platform.system() not in ["Windows", "Linux", "Darwin"]:
+            st.warning("🎙️ Voice input is not supported in this environment.")
+        else:
+            with sr.Microphone() as source:
+                st.info("Listening... Please speak now.")
+                try:
+                    audio = recognizer.listen(source, timeout=5)
+                    voice_text = recognizer.recognize_google(audio)
+                    st.success(f"🗣️ You said: `{voice_text}`")
+                    handle_user_input(voice_text)
+                    st.rerun()
+                except sr.WaitTimeoutError:
+                    st.warning("⏱️ No speech detected. Try again.")
+                except sr.UnknownValueError:
+                    st.error("🤷 Could not understand audio.")
+                except sr.RequestError as e:
+                    st.error(f"⚠️ Error with speech recognition: {e}")
+    except OSError as mic_err:
+        st.warning("🎙️ Microphone not accessible. This feature may not work in cloud or headless environments.")
