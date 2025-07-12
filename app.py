@@ -61,6 +61,13 @@ updated_keywords = {
 
 # ------------------- Functions -------------------
 def create_disaster_map(disaster_type: str, region: str = "india"):
+    # This list now acts as a simple check for available regions
+    supported_regions = ["india"]
+    
+    # New logic: Check if the region is supported before attempting to draw points
+    is_supported_region = region.lower() in supported_regions
+    
+    # We still want to show the map itself, but we'll use a general view
     center_lat = 22.0
     center_lon = 79.0
     zoom_level = 4
@@ -68,7 +75,11 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
     
     if disaster_type == "flood":
-        st.markdown("🌐 **Note:** The underlying map shows live flood data, with specific points highlighted in colors for demonstration.")
+        if is_supported_region:
+            st.markdown("🌐 **Note:** The underlying map shows live flood data, with specific points highlighted in colors for demonstration.")
+        else:
+            st.markdown("🌐 **Note:** The underlying map shows live flood data, but specific demonstration points are only available for India.")
+        
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
             layers="ndh:ndh-flood-hazard-frequency-distribution",
@@ -77,23 +88,29 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
         
-        geojson_data = FLOOD_GEOJSON
-        color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
-        for feature in geojson_data["features"]:
-            lon, lat = feature["geometry"]["coordinates"]
-            risk_level = feature["properties"]["risk_level"]
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=10,
-                color="black",
-                weight=1,
-                fill_color=color_map[risk_level],
-                fill_opacity=0.6,
-                tooltip=f"{risk_level} Flood Risk"
-            ).add_to(m)
+        # Only add the static points if the region is "india"
+        if is_supported_region:
+            geojson_data = FLOOD_GEOJSON
+            color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
+            for feature in geojson_data["features"]:
+                lon, lat = feature["geometry"]["coordinates"]
+                risk_level = feature["properties"]["risk_level"]
+                folium.CircleMarker(
+                    location=[lat, lon],
+                    radius=10,
+                    color="black",
+                    weight=1,
+                    fill_color=color_map[risk_level],
+                    fill_opacity=0.6,
+                    tooltip=f"{risk_level} Flood Risk"
+                ).add_to(m)
         
     elif disaster_type == "landslide":
-        st.markdown("🌐 **Note:** The underlying map shows live landslide data, with specific points highlighted in colors for demonstration.")
+        if is_supported_region:
+            st.markdown("🌐 **Note:** The underlying map shows live landslide data, with specific points highlighted in colors for demonstration.")
+        else:
+            st.markdown("🌐 **Note:** The underlying map shows live landslide data, but specific demonstration points are only available for India.")
+
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
             layers="Global_Landslide_Hazard_Map",
@@ -102,20 +119,22 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
         
-        geojson_data = LANDSLIDE_GEOJSON
-        color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
-        for feature in geojson_data["features"]:
-            lon, lat = feature["geometry"]["coordinates"]
-            risk_level = feature["properties"]["risk_level"]
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=10,
-                color="black",
-                weight=1,
-                fill_color=color_map[risk_level],
-                fill_opacity=0.6,
-                tooltip=f"{risk_level} Landslide Risk"
-            ).add_to(m)
+        # Only add the static points if the region is "india"
+        if is_supported_region:
+            geojson_data = LANDSLIDE_GEOJSON
+            color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
+            for feature in geojson_data["features"]:
+                lon, lat = feature["geometry"]["coordinates"]
+                risk_level = feature["properties"]["risk_level"]
+                folium.CircleMarker(
+                    location=[lat, lon],
+                    radius=10,
+                    color="black",
+                    weight=1,
+                    fill_color=color_map[risk_level],
+                    fill_opacity=0.6,
+                    tooltip=f"{risk_level} Landslide Risk"
+                ).add_to(m)
         
     elif disaster_type == "fire":
         m.add_wms_layer(
@@ -221,24 +240,19 @@ def static_bot_response(message):
             "type": "global_hazard_map",
             "content": "🌐 Global Hazard Map"
         }
-    if "flood" in msg:
+    
+    # Check for specific disaster and region
+    match = re.search(r'(flood|landslide|fire)\s(?:in\s)?([a-z\s]+)?', msg)
+    if match:
+        disaster_type = match.group(1)
+        region = match.group(2) if match.group(2) else "india"
         return {
             "type": "disaster_map",
-            "disaster": "flood",
-            "content": "🌊 Flood Hazard Zones in India"
+            "disaster": disaster_type,
+            "region": region.strip() if region else "india",
+            "content": f"🗺️ {disaster_type.capitalize()} Hazard Zones in {region.capitalize() if region else 'India'}"
         }
-    elif "landslide" in msg:
-        return {
-            "type": "disaster_map",
-            "disaster": "landslide",
-            "content": "⛰️ Landslide Hazard Zones in India"
-        }
-    elif "fire" in msg or "forest fire" in msg:
-        return {
-            "type": "disaster_map",
-            "disaster": "fire",
-            "content": "🔥 Forest Fire Risk Zones in India"
-        }
+
     if "help" in msg or "question" in msg:
         return {
             "type": "question",
@@ -278,8 +292,8 @@ def get_osm_map_from_query(query, tags):
 
 # ------------------- Streamlit UI -------------------
 st.set_page_config("GIS Assistant", layout="wide")
-st.markdown("<h2 style='text-align: center;'>🚁 GIS Map Assistant</h2>", unsafe_allow_html=True)
-st.caption("Ask questions like 'Show rainfall in Kochi', 'Landslide in Dima Hasao', or 'Global hazard map'")
+st.markdown("<h2 style='text-align: center;'>🌐 GIS Bot Assistant</h2>", unsafe_allow_html=True)
+st.caption("Ask me anything related to disaster risks, emergency zones, or map-based hazard insights—I'm here to assist with all your geospatial questions.")
 
 if "conversations" not in st.session_state:
     st.session_state.conversations = {}
@@ -345,17 +359,15 @@ for msg in chat_history:
     
         elif msg["type"] == "disaster_map":
             st.markdown(icon, unsafe_allow_html=True)
-            # Use a 70/30 ratio for map and table, spanning full width
-            map_col, table_col = st.columns([7, 3])
-            with map_col:
-                st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
-                map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
-                if map_obj:
-                    # Make map fill the container width and set a fixed height
+            
+            map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
+            if map_obj:
+                map_col, table_col = st.columns([7, 3])
+                with map_col:
+                    st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
                     st_folium(map_obj, key=f"map_{chat_id}_disaster_{chat_history.index(msg)}", height=600, use_container_width=True)
-            with table_col:
-                st.markdown("### 📊 Disaster Summary Table")
-                show_disaster_summary_table(msg["disaster"])
+                with table_col:
+                    show_disaster_summary_table(msg["disaster"])
 
 user_input = st.chat_input("Type your question here...")
 if user_input:
