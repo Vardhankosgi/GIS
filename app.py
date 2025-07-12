@@ -49,12 +49,11 @@ info_map = {
 
 friendly_responses = {
     "hi": "Hello! 👋 I'm your GIS assistant. Ask me about rainfall, landslides, floods, clinics, or schools.",
-    "hello": "Hi there! 😊 I'm here to help with hazard zones and local planning maps.",
     "how are you": "I'm running smoothly! Ask about geographic risks or features.",
     "how can you help": "You can ask things like 'Where are floods in Assam?' or 'Landslide risk in Himachal?'.",
-    "what can you do": "I show hazard maps, rainfall patterns, school & clinic locations, and more!",
     "thanks": "You're welcome! Let me know if you need anything else."
 }
+
 
 updated_keywords = {
     "hospital": {"amenity": "hospital"},
@@ -260,10 +259,20 @@ def show_global_hazard_dashboard(focus="all"):
 def static_bot_response(message):
     msg = message.lower().strip()
 
-    # 1. Friendly responses
-    for key in friendly_responses:
-        if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
-            return {"type": "text", "content": friendly_responses[key]}
+    normalized_msg = re.sub(r'[^\w\s]', '', msg.lower().strip())
+    
+    friendly_variants = {
+        "hi": ["hi", "hii", "hey", "hello", "heyy"],
+        "how are you": ["how are you", "how r u", "how are u"],
+        "how can you help": ["how can you help", "what can you do"],
+        "thanks": ["thanks", "thank you", "thx"]
+    }
+    
+    for key, variants in friendly_variants.items():
+        for phrase in variants:
+            if phrase in normalized_msg:
+                return {"type": "text", "content": friendly_responses.get(key)}
+
 
     # 2. POIs
     for keyword, tags in updated_keywords.items():
