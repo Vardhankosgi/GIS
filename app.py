@@ -7,6 +7,12 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 import platform
+from PIL import Image
+import geopandas as gpd
+from shapely.geometry import Point
+import io
+
+
 
 # --- Local GeoJSON data for demonstration (now with Points) ---
 FLOOD_GEOJSON = {
@@ -379,29 +385,30 @@ for msg in chat_history:
                 with table_col:
                     show_disaster_summary_table(msg["disaster"])
 
-st.markdown("---")
+# ------------------- Input Field -------------------
+user_input = st.chat_input("Type your question here...")
+if user_input:
+    handle_user_input(user_input)
+    st.rerun()
+
+# ------------------- Voice Input -------------------
 st.markdown("🎤 Or use your voice:")
 if st.button("🎤 Start Voice Input"):
-    try:
-        recognizer = sr.Recognizer()
-
-        # Check if running in a supported OS environment
-        if platform.system() not in ["Windows", "Linux", "Darwin"]:
-            st.warning("🎙️ Voice input is not supported in this environment.")
-        else:
-            with sr.Microphone() as source:
-                st.info("Listening... Please speak now.")
-                try:
-                    audio = recognizer.listen(source, timeout=5)
-                    voice_text = recognizer.recognize_google(audio)
-                    st.success(f"🗣️ You said: `{voice_text}`")
-                    handle_user_input(voice_text)
-                    st.rerun()
-                except sr.WaitTimeoutError:
-                    st.warning("⏱️ No speech detected. Try again.")
-                except sr.UnknownValueError:
-                    st.error("🤷 Could not understand audio.")
-                except sr.RequestError as e:
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("Listening... Please speak now.")
+        try:
+            audio = recognizer.listen(source, timeout=5)
+            voice_text = recognizer.recognize_google(audio)
+            st.success(f"🗣️ You said: {voice_text}")
+            handle_user_input(voice_text)
+            st.rerun()
+        except sr.WaitTimeoutError:
+            st.warning("⏱️ No speech detected. Try again.")
+        except sr.UnknownValueError:
+            st.error("🤷 Could not understand audio.")
+        except sr.RequestError as e:
+            st.error(f"⚠️ Error with speech recognition: {e}")
                     st.error(f"⚠️ Error with speech recognition: {e}")
     except OSError as mic_err:
         st.warning("🎙️ Microphone not accessible. This feature may not work in cloud or headless environments.")
