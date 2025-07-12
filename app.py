@@ -71,7 +71,13 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
         gdf = ox.geocode_to_gdf(region)
         center_lat = gdf.geometry.centroid.y.values[0]
         center_lon = gdf.geometry.centroid.x.values[0]
-        zoom_level = 6 if region.lower() not in ["india", "world"] else 4
+        if region.lower() == "india":
+            zoom_level = 5
+        elif region.lower() in ["world", "global"]:
+            zoom_level = 8
+        else:
+            zoom_level = 9  # Closer zoom for country-specific views
+
         st.info(f"📍 Displaying map centered on {region.title()}.")
     except Exception:
         # Fallback to a global view if geocoding fails.
@@ -94,18 +100,33 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             transparent=True
         )
         if region.lower() == "india":
+            legend_html = """
+            <div style='position: fixed; bottom: 30px; left: 30px; width: 200px; height: 100px;
+                 background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
+                 padding: 10px;'>
+            <b>Flood Risk Legend</b><br>
+            🟥 High Risk<br>
+            🟧 Medium Risk<br>
+            🟦 Low Risk
+            </div>
+            """
+            m.add_child(folium.map.LayerControl())
+            
             for feature in FLOOD_GEOJSON["features"]:
                 lon, lat = feature["geometry"]["coordinates"]
                 risk_level = feature["properties"]["risk_level"]
                 folium.CircleMarker(
                     location=[lat, lon],
-                    radius=10,
+                    radius=12,
                     color="black",
                     weight=1,
                     fill_color=color_map[risk_level],
-                    fill_opacity=0.6,
+                    fill_opacity=0.7,
                     tooltip=f"{risk_level} Flood Risk"
                 ).add_to(m)
+            
+            m.get_root().html.add_child(folium.Element(legend_html))
+
 
     elif disaster_type == "landslide":
         st.markdown("⛰️ **Landslide Hazard Map**")
@@ -117,18 +138,33 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             transparent=True
         )
         if region.lower() == "india":
-            for feature in LANDSLIDE_GEOJSON["features"]:
+            legend_html = """
+            <div style='position: fixed; bottom: 30px; left: 30px; width: 200px; height: 100px;
+                 background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
+                 padding: 10px;'>
+            <b>Flood Risk Legend</b><br>
+            🟥 High Risk<br>
+            🟧 Medium Risk<br>
+            🟦 Low Risk
+            </div>
+            """
+            m.add_child(folium.map.LayerControl())
+            
+            for feature in FLOOD_GEOJSON["features"]:
                 lon, lat = feature["geometry"]["coordinates"]
                 risk_level = feature["properties"]["risk_level"]
                 folium.CircleMarker(
                     location=[lat, lon],
-                    radius=10,
+                    radius=12,
                     color="black",
                     weight=1,
                     fill_color=color_map[risk_level],
-                    fill_opacity=0.6,
-                    tooltip=f"{risk_level} Landslide Risk"
+                    fill_opacity=0.7,
+                    tooltip=f"{risk_level} Flood Risk"
                 ).add_to(m)
+            
+            m.get_root().html.add_child(folium.Element(legend_html))
+            
 
     elif disaster_type == "fire":
         st.markdown("🔥 **Forest Fire Risk Map**")
@@ -272,13 +308,16 @@ def static_bot_response(message):
 **Here's what I am capable of answering:**
 
 --1. For Finding Local Places--
-Keywords: `hospital`, `school`, `clinic`, `atm`, `restaurant`
+* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map.
+* Keywords: hospital, school, clinic, atm, restaurant
 
 --2. For Hazard & Disaster Information--
-Keywords: `flood`, `landslide`, `fire`, `global hazard`
+* What it does: Displays maps and data tables for specific hazards.
+* Keywords: flood, landslide, fire, global hazard
 
 --3. For General Interaction--
-Keywords: `hi`, `hello`, `how can you help`, `what can you do`
+* What it does: Provides friendly responses and general information about the bot.
+* Keywords: hi, hello, how can you help, what can you do
 """
         return {"type": "text", "content": help_text}
 
