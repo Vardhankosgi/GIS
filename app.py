@@ -71,8 +71,8 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
         gdf = ox.geocode_to_gdf(region)
         center_lat = gdf.geometry.centroid.y.values[0]
         center_lon = gdf.geometry.centroid.x.values[0]
-        if region.lower() == "india":
-            zoom_level = 5
+        if region.lower() in ["india", "himachal pradesh", "kerala", "nepal", "itahari","kochi"]:
+            zoom_level = 6
         elif region.lower() in ["world", "global"]:
             zoom_level = 8
         else:
@@ -99,7 +99,9 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             format="image/png",
             transparent=True
         )
-        if region.lower() == "india":
+    
+        if region.lower() in ["india", "himachal pradesh", "kerala", "nepal", "itahari","kochi"]:
+
             legend_html = """
             <div style='position: fixed; bottom: 30px; left: 30px; width: 200px; height: 100px;
                  background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
@@ -137,7 +139,8 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             format="image/png",
             transparent=True
         )
-        if region.lower() == "india":
+        if region.lower() in ["india", "himachal pradesh", "kerala", "nepal", "itahari","kochi"]:    
+
             legend_html = """
             <div style='position: fixed; bottom: 30px; left: 30px; width: 200px; height: 100px;
                  background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
@@ -457,58 +460,3 @@ if user_input:
     handle_user_input(user_input)
     st.rerun()
 
-# ------------------- Voice Input Section -------------------
-st.markdown("<span style='font-size: 16px;'>🎙️ Use the microphone here to ask your question</span>", unsafe_allow_html=True)
-
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.recognizer = sr.Recognizer()
-        self.transcribed = ""
-        self.last_text = ""
-
-    def recv(self, frame: av.AudioFrame):
-        raw_audio_bytes = frame.to_ndarray().tobytes()
-        audio_stream = io.BytesIO(raw_audio_bytes)
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
-                # Write audio data to a temporary WAV file
-                temp_audio_file.write(raw_audio_bytes)
-                temp_audio_file.seek(0)
-                
-                with sr.AudioFile(temp_audio_file.name) as source:
-                    audio = self.recognizer.record(source)
-                    text = self.recognizer.recognize_google(audio)
-                    if text and text != self.last_text:
-                        self.transcribed = text
-                        self.last_text = text
-        except (sr.UnknownValueError, sr.RequestError, Exception) as e:
-            # st.error(f"Error during transcription: {e}") # This causes issues inside the thread
-            pass # Suppress error to avoid issues with Streamlit thread safety
-        return frame
-
-webrtc_ctx = webrtc_streamer(
-    key="speech_to_text",
-    mode=WebRtcMode.SENDONLY,
-    audio_processor_factory=AudioProcessor,
-    media_stream_constraints={"audio": True, "video": False},
-    async_processing=True
-)
-
-if webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
-    st.info("Listening... Speak clearly into your microphone.")
-    new_transcription = webrtc_ctx.audio_processor.transcribed
-    
-    if new_transcription:
-        st.session_state.voice_input = new_transcription
-
-# Create a text input for the voice transcription
-if 'voice_input' in st.session_state and st.session_state.voice_input:
-    # Use a unique key to prevent re-rendering issues
-    transcribed_text = st.text_input("Transcribed Text:", value=st.session_state.voice_input, key='voice_transcription_input')
-    
-    if st.button("Submit Voice Query"):
-        query = transcribed_text
-        if query:
-            handle_user_input(query)
-            st.session_state.voice_input = "" # Clear state
-            st.rerun()
