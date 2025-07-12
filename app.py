@@ -12,6 +12,10 @@ import re
 import io
 import base64
 
+def decode_base64_image(b64_string):
+    return Image.open(io.BytesIO(base64.b64decode(b64_string)))
+
+
 
 # ---------------- Image & Summary ------------------
 image_base64_map = {
@@ -217,15 +221,11 @@ for msg in chat_history:
                 with st.container():
                     col_img, col_summary = st.columns([1, 1])
                     with col_img:
-                        
-                        def decode_base64_image(b64_string):
-                            return Image.open(io.BytesIO(base64.b64decode(b64_string)))
-
-                        
                         st.image(decode_base64_image(image_base64_map[msg["image_key"]]), use_container_width=True)
-
+                
                     with col_summary:
                         st.markdown(f"<span style='font-size:14px'>{msg['summary']}</span>", unsafe_allow_html=True)
+
         
             else:
                 st.error(f"❌ Could not load image from path: `{image_path}`. Please check if it exists.")
