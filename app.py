@@ -13,6 +13,7 @@ from shapely.geometry import Point
 import io
 import base64
 from io import BytesIO
+import streamlit.components.v1 as components
 
 
 
@@ -396,57 +397,66 @@ if user_input:
 
 # ------------------- Browser-Based Voice Input ------------------
 
-st.markdown("🎤 Or use your voice:")
 
-st.markdown("""
-<button id="start">🎙️ Start Recording</button>
-<button id="stop">⏹️ Stop Recording</button>
-<p id="status">Status: Not Recording</p>
-<audio id="audio" controls></audio>
+st.markdown("🎤 **Or use your voice:**")
 
-<script>
-let mediaRecorder;
-let audioChunks = [];
+# Render a simple mic button with embedded JS
+components.html(
+    """
+    <style>
+    #mic-btn {
+        background-color: transparent;
+        border: none;
+        font-size: 36px;
+        cursor: pointer;
+    }
+    </style>
+    <button id="mic-btn">🎤</button>
+    <script>
+    const micBtn = document.getElementById("mic-btn");
+    micBtn.onclick = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        let chunks = [];
 
-document.getElementById("start").onclick = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
-    document.getElementById("status").innerText = "Status: Recording...";
-    audioChunks = [];
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/wav' });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64Audio = reader.result.split(',')[1];
+                window.parent.postMessage({ type: 'streamlit:setComponentValue', value: base64Audio }, '*');
+            };
+            reader.readAsDataURL(blob);
+        };
 
-    mediaRecorder.ondataavailable = event => {
-        audioChunks.push(event.data);
+        mediaRecorder.start();
+        setTimeout(() => mediaRecorder.stop(), 3000); // Record for 3 seconds
     };
+    </script>
+    """,
+    height=80,
+    key="mic_html"
+)
 
-    mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks);
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        const audioUrl = URL.createObjectURL(audioBlob);
-        document.getElementById("audio").src = audioUrl;
+# Receive and process voice input (base64)
+audio_base64 = st.experimental_get_query_params().get("audio_data") or st.experimental_get_query_params().get("value")
+if audio_base64:
+    audio_bytes = base64.b64decode(audio_base64[0])
+    with open("voice.wav", "wb") as f:
+        f.write(audio_bytes)
 
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = "audio_data";
-        input.value = base64;
-        document.body.appendChild(input);
+    recognizer = sr.Recognizer()
+    with sr.AudioFile("voice.wav") as source:
+        audio = recognizer.record(source)
+        try:
+            text = recognizer.recognize_google(audio)
+            st.success(f"🗣️ You said: {text}")
+            handle_user_input(text)
+            st.rerun()
+        except Exception as e:
+            st.error("❌ Could not understand audio: " + str(e))
 
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = "/";
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-    };
-};
-
-document.getElementById("stop").onclick = () => {
-    mediaRecorder.stop();
-    document.getElementById("status").innerText = "Status: Stopped";
-};
-</script>
-""", unsafe_allow_html=True)
 
 # ------------------- Process Incoming Audio ------------------
 if "audio_data" not in st.session_state:
