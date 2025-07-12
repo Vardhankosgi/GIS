@@ -18,7 +18,7 @@ FLOOD_GEOJSON = {
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[76.2, 9.9], [76.3, 9.9], [76.3, 10.0], [76.2, 10.0], [76.2, 9.9]]]
+                "coordinates": [[[76.25, 9.95], [76.30, 9.95], [76.30, 10.05], [76.25, 10.05], [76.25, 9.95]]]
             },
             "properties": {"risk_level": "High"}
         },
@@ -26,7 +26,7 @@ FLOOD_GEOJSON = {
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[76.3, 9.8], [76.4, 9.8], [76.4, 9.9], [76.3, 9.9], [76.3, 9.8]]]
+                "coordinates": [[[76.35, 9.85], [76.40, 9.85], [76.40, 9.95], [76.35, 9.95], [76.35, 9.85]]]
             },
             "properties": {"risk_level": "Medium"}
         },
@@ -34,7 +34,7 @@ FLOOD_GEOJSON = {
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[76.4, 9.7], [76.5, 9.7], [76.5, 9.8], [76.4, 9.8], [76.4, 9.7]]]
+                "coordinates": [[[76.45, 9.75], [76.50, 9.75], [76.50, 9.85], [76.45, 9.85], [76.45, 9.75]]]
             },
             "properties": {"risk_level": "Low"}
         }
@@ -48,7 +48,7 @@ LANDSLIDE_GEOJSON = {
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[77.15, 31.0], [77.25, 31.0], [77.25, 31.1], [77.15, 31.1], [77.15, 31.0]]]
+                "coordinates": [[[93.7, 25.8], [93.8, 25.8], [93.8, 25.9], [93.7, 25.9], [93.7, 25.8]]]
             },
             "properties": {"risk_level": "High"}
         },
@@ -56,7 +56,7 @@ LANDSLIDE_GEOJSON = {
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[77.2, 31.2], [77.3, 31.2], [77.3, 31.3], [77.2, 31.3], [77.2, 31.2]]]
+                "coordinates": [[[93.6, 25.7], [93.7, 25.7], [93.7, 25.8], [93.6, 25.8], [93.6, 25.7]]]
             },
             "properties": {"risk_level": "Medium"}
         }
@@ -97,7 +97,9 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
             "weight": 1,
             "fillOpacity": 0.6
         }
-        folium.GeoJson(FLOOD_GEOJSON, name="Flood Risk", style_function=style_function).add_to(m)
+        
+        geojson_layer = folium.GeoJson(FLOOD_GEOJSON, name="Flood Risk", style_function=style_function).add_to(m)
+        m.fit_bounds(geojson_layer.get_bounds())
 
     elif disaster_type == "landslide":
         # --- NEW: Use local GeoJSON with a style function ---
@@ -110,7 +112,9 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
             "weight": 1,
             "fillOpacity": 0.6
         }
-        folium.GeoJson(LANDSLIDE_GEOJSON, name="Landslide Risk", style_function=style_function).add_to(m)
+        
+        geojson_layer = folium.GeoJson(LANDSLIDE_GEOJSON, name="Landslide Risk", style_function=style_function).add_to(m)
+        m.fit_bounds(geojson_layer.get_bounds())
 
     elif disaster_type == "fire":
         # Keep using the reliable NASA WMS layer for live data
