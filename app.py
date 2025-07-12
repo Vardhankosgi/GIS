@@ -278,22 +278,34 @@ def static_bot_response(message):
 
 
     disaster_aliases = {
-        "flood": ["flood", "floods", "flooding"],
-        "landslide": ["landslide", "landslides", "land slides"],
-        "fire": ["fire", "fires", "wildfire", "forest fire"]
+        "flood": [r"floods?", r"flooding"],
+        "landslide": [r"land[\s\-]?slides?", r"mudslides?"],
+        "fire": [r"(forest\s*)?fires?", r"wild[\s\-]?fires?"]
     }
     
-    for disaster, variations in disaster_aliases.items():
-        for alias in variations:
-            if re.search(rf"\b{alias}\b", msg):
-                match = re.search(rf"{alias}(?:\s+in\s+([a-z\s]+))?", msg)
-                region = match.group(1).strip() if match and match.group(1) else "world"
+    for disaster, patterns in disaster_aliases.items():
+        for pattern in patterns:
+            # Look for phrases like "flood.*in <region>"
+            region_match = re.search(rf"{pattern}.*\bin\s+([a-zA-Z\s]+)", msg)
+            if region_match:
+                region = region_match.group(1).strip()
                 return {
                     "type": "disaster_map",
                     "disaster": disaster,
                     "region": region,
                     "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.capitalize()}"
                 }
+            
+            # If only disaster is mentioned without region
+            simple_match = re.search(rf"\b{pattern}\b", msg)
+            if simple_match:
+                return {
+                    "type": "disaster_map",
+                    "disaster": disaster,
+                    "region": "world",
+                    "content": f"🗺️ {disaster.capitalize()} Hazard Zones (Global View)"
+                }
+
 
 
     # 4. Global hazard view
