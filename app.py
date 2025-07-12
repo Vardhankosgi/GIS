@@ -391,24 +391,25 @@ if user_input:
     handle_user_input(user_input)
     st.rerun()
 
-# ------------------- Voice Input -------------------
+# ------------------- Voice Input ------------------
 st.markdown("🎤 Or use your voice:")
+
 if st.button("🎤 Start Voice Input"):
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("Listening... Please speak now.")
-        try:
-            audio = recognizer.listen(source, timeout=5)
-            voice_text = recognizer.recognize_google(audio)
-            st.success(f"🗣️ You said: {voice_text}")
-            handle_user_input(voice_text)
-            st.rerun()
-        except sr.WaitTimeoutError:
-            st.warning("⏱️ No speech detected. Try again.")
-        except sr.UnknownValueError:
-            st.error("🤷 Could not understand audio.")
-        except sr.RequestError as e:
-            st.error(f"⚠️ Error with speech recognition: {e}")
-                    st.error(f"⚠️ Error with speech recognition: {e}")
+    try:
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            st.info("Listening... Please speak now.")
+            try:
+                audio = recognizer.listen(source, timeout=5)
+                voice_text = recognizer.recognize_google(audio)
+                st.success(f"🗣️ You said: {voice_text}")
+                handle_user_input(voice_text)
+                st.rerun()
+            except sr.WaitTimeoutError:
+                st.warning("⏱️ No speech detected. Try again.")
+            except sr.UnknownValueError:
+                st.error("🤷 Could not understand audio.")
+            except sr.RequestError as e:
+                st.error(f"⚠️ Error with speech recognition: {e}")
     except OSError as mic_err:
         st.warning("🎙️ Microphone not accessible. This feature may not work in cloud or headless environments.")
