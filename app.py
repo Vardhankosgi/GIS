@@ -228,12 +228,20 @@ def static_bot_response(message):
         if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
             return {"type": "text", "content": friendly_responses[key]}
     for keyword, tags in updated_keywords.items():
-        if keyword in msg and " in " in msg:
-            return {
-                "type": "dynamic_map",
-                "query": msg,
-                "tags": tags
-            }
+        if keyword in msg:
+            if " in " in msg:
+                return {
+                    "type": "dynamic_map",
+                    "query": msg,
+                    "tags": tags
+                }
+            else:
+                # Default to India if no location given
+                return {
+                    "type": "dynamic_map",
+                    "query": f"{keyword} in India",
+                    "tags": tags
+                }
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
