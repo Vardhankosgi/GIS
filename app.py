@@ -128,8 +128,11 @@ def show_disaster_summary_table(hazard_type: str):
 def show_global_hazard_dashboard(focus="all"):
     st.markdown("## 🌐 Global Hazard Map (Color Highlighted)")
 
-    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.Positron")
+    # ✅ Set default global center if not defined
+    center_lat = 20.0  # roughly center of Asia
+    center_lon = 80.0
 
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=2, basemap="CartoDB.Positron")
 
     if focus in ["all", "fire"]:
         m.add_wms_layer(
@@ -158,7 +161,6 @@ def show_global_hazard_dashboard(focus="all"):
             transparent=True
         )
 
-    # Optionally add population or elevation for context
     if focus == "all":
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
