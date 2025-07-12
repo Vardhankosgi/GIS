@@ -8,80 +8,28 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 
-# --- Local GeoJSON data for demonstration ---
+# --- Local GeoJSON data for demonstration (now with Points) ---
 FLOOD_GEOJSON = {
     "type": "FeatureCollection",
     "features": [
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[76.25, 9.95], [76.30, 9.95], [76.30, 10.05], [76.25, 10.05], [76.25, 9.95]]]
-            },
-            "properties": {"risk_level": "High"}
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[76.35, 9.85], [76.40, 9.85], [76.40, 9.95], [76.35, 9.95], [76.35, 9.85]]]
-            },
-            "properties": {"risk_level": "Medium"}
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[76.45, 9.75], [76.50, 9.75], [76.50, 9.85], [76.45, 9.85], [76.45, 9.75]]]
-            },
-            "properties": {"risk_level": "Low"}
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[76.22, 10.02], [76.28, 10.02], [76.28, 10.08], [76.22, 10.08], [76.22, 10.02]]]
-            },
-            "properties": {"risk_level": "High"}
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[76.42, 9.78], [76.48, 9.78], [76.48, 9.88], [76.42, 9.88], [76.42, 9.78]]]
-            },
-            "properties": {"risk_level": "Low"}
-        }
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.28, 9.98]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.32, 10.03]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.38, 9.89]}, "properties": {"risk_level": "Medium"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.45, 9.81]}, "properties": {"risk_level": "Low"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.24, 10.05]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.40, 9.77]}, "properties": {"risk_level": "Low"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.31, 9.91]}, "properties": {"risk_level": "Medium"}}
     ]
 }
 
 LANDSLIDE_GEOJSON = {
     "type": "FeatureCollection",
     "features": [
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[93.7, 25.8], [93.8, 25.8], [93.8, 25.9], [93.7, 25.9], [93.7, 25.8]]]
-            },
-            "properties": {"risk_level": "High"}
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[93.6, 25.7], [93.7, 25.7], [93.7, 25.8], [93.6, 25.8], [93.6, 25.7]]]
-            },
-            "properties": {"risk_level": "Medium"}
-        },
-        {
-            "type": "Feature",
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[[93.72, 25.85], [93.78, 25.85], [93.78, 25.95], [93.72, 25.95], [93.72, 25.85]]]
-            },
-            "properties": {"risk_level": "High"}
-        }
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.75, 25.85]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.79, 25.89]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.65, 25.75]}, "properties": {"risk_level": "Medium"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.78, 25.92]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.68, 25.82]}, "properties": {"risk_level": "Medium"}}
     ]
 }
 
@@ -135,29 +83,43 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
     
     if disaster_type == "flood":
         st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
-        style_function = lambda x: {
-            "fillColor": "red" if x["properties"]["risk_level"] == "High" else 
-                         "orange" if x["properties"]["risk_level"] == "Medium" else 
-                         "lightblue",
-            "color": "black",
-            "weight": 1,
-            "fillOpacity": 0.6
-        }
-        geojson_layer = folium.GeoJson(FLOOD_GEOJSON, name="Flood Risk", style_function=style_function).add_to(m)
-        m.fit_bounds(geojson_layer.get_bounds())
+        geojson_data = FLOOD_GEOJSON
+        color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
         
+        for feature in geojson_data["features"]:
+            lon, lat = feature["geometry"]["coordinates"]
+            risk_level = feature["properties"]["risk_level"]
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=10,
+                color="black",
+                weight=1,
+                fill_color=color_map[risk_level],
+                fill_opacity=0.6,
+                tooltip=f"{risk_level} Flood Risk"
+            ).add_to(m)
+        
+        m.fit_bounds(m.get_bounds())
+
     elif disaster_type == "landslide":
         st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
-        style_function = lambda x: {
-            "fillColor": "darkred" if x["properties"]["risk_level"] == "High" else 
-                         "darkorange" if x["properties"]["risk_level"] == "Medium" else 
-                         "yellow",
-            "color": "black",
-            "weight": 1,
-            "fillOpacity": 0.6
-        }
-        geojson_layer = folium.GeoJson(LANDSLIDE_GEOJSON, name="Landslide Risk", style_function=style_function).add_to(m)
-        m.fit_bounds(geojson_layer.get_bounds())
+        geojson_data = LANDSLIDE_GEOJSON
+        color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
+        
+        for feature in geojson_data["features"]:
+            lon, lat = feature["geometry"]["coordinates"]
+            risk_level = feature["properties"]["risk_level"]
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=10,
+                color="black",
+                weight=1,
+                fill_color=color_map[risk_level],
+                fill_opacity=0.6,
+                tooltip=f"{risk_level} Landslide Risk"
+            ).add_to(m)
+            
+        m.fit_bounds(m.get_bounds())
         
     elif disaster_type == "fire":
         m.add_wms_layer(
@@ -349,7 +311,6 @@ def handle_user_input(user_msg):
     response = static_bot_response(user_msg)
     chat_history.append({"role": "bot", **response})
 
-st.markdown("---")
 for msg in chat_history:
     is_bot = msg["role"] == "bot"
     col1, col2 = st.columns([6, 6])
@@ -384,12 +345,12 @@ for msg in chat_history:
     
         elif msg["type"] == "disaster_map":
             st.markdown(icon, unsafe_allow_html=True)
-            map_col, table_col = st.columns(2)
+            map_col, table_col = st.columns([3, 1])
             with map_col:
                 st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
                 map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
                 if map_obj:
-                    st_folium(map_obj, width=700, height=500)
+                    st_folium(map_obj, height=600, width=800)
             with table_col:
                 st.markdown("### 📊 Disaster Summary Table")
                 show_disaster_summary_table(msg["disaster"])
@@ -399,6 +360,7 @@ if user_input:
     handle_user_input(user_input)
     st.rerun()
 
+st.markdown("---")
 st.markdown("🎤 Or use your voice:")
 if st.button("🎤 Start Voice Input"):
     recognizer = sr.Recognizer()
