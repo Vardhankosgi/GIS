@@ -25,7 +25,8 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
     center_lat = (bounds[0] + bounds[2]) / 2
     center_lon = (bounds[1] + bounds[3]) / 2
 
-    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.DarkMatter")
+    # --- CHANGE: Using a lighter basemap to make the colors stand out ---
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.Positron")
 
     if disaster_type == "flood":
         m.add_wms_layer(
@@ -118,10 +119,10 @@ def show_disaster_summary_table(hazard_type: str):
 def show_global_hazard_dashboard(focus="all"):
     st.markdown("## 🌐 Global Hazard Map (Color Highlighted)")
 
-    # ✅ Set default global center if not defined
-    center_lat = 20.0  # roughly center of Asia
+    center_lat = 20.0
     center_lon = 80.0
 
+    # This function already uses a good basemap
     m = leafmap.Map(center=[center_lat, center_lon], zoom=2, basemap="CartoDB.Positron")
 
     if focus in ["all", "fire"]:
@@ -161,7 +162,6 @@ def show_global_hazard_dashboard(focus="all"):
         )
 
     m.to_streamlit(height=600)
-
 
 
 # ------------------- Query Response -------------------
@@ -313,12 +313,11 @@ for msg in chat_history:
     
         elif msg["type"] == "global_hazard_map":
             st.markdown(icon, unsafe_allow_html=True)
-        
-            # ✅ SAFELY initialize hazard_type
+    
             hazard_type = "all"
-        
+    
             content = msg.get("content", "").lower() if "content" in msg else ""
-        
+    
             if "flood" in content:
                 hazard_type = "flood"
             elif "landslide" in content:
@@ -327,18 +326,17 @@ for msg in chat_history:
                 hazard_type = "fire"
             elif "traffic" in content:
                 hazard_type = "traffic"
-        
-            # ✅ now safe to call
+    
             show_global_hazard_dashboard(hazard_type)
-        
+    
             st.markdown(f"<span style='font-size:14px'>{msg.get('content','')}</span>", unsafe_allow_html=True)
             show_disaster_summary_table(hazard_type)
-
-        
+    
+    
         elif msg["type"] == "disaster_map": 
             st.markdown(icon, unsafe_allow_html=True)
             st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
-        
+    
             # Show map and summary for disaster type (e.g. flood, landslide, fire)
             show_disaster_map(msg["disaster"], msg.get("region", "india"))
             show_disaster_summary_table(msg["disaster"])
