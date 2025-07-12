@@ -288,11 +288,18 @@ def static_bot_response(message):
                 "tags": tags
             }
 
-    # 3. Disaster Detection
     disaster_aliases = {
         "flood": [r"\bflood(?:s|ing)?\b"],
-        "landslide": [r"\bland[\s\-]?slides?\b", r"\bmudslides?\b"],
-        "fire": [r"\b(forest\s*)?fires?\b", r"\bwild[\s\-]?fires?\b"]
+        "landslide": [
+            r"\blandslides?\b",
+            r"\bland[\s\-]?slides?\b",
+            r"\bland\s+slide(?:s)?\b",
+            r"\bmudslides?\b"
+        ],
+        "fire": [
+            r"\bforest\s*fires?\b",
+            r"\bwild[\s\-]?fires?\b"
+        ]
     }
 
     known_regions = ["India", "China", "Russia", "Brazil", "USA", "Indonesia", "Nepal", "Bangladesh", "Pakistan"]
@@ -302,7 +309,8 @@ def static_bot_response(message):
         for pattern in patterns:
             match = re.search(rf"{pattern}(?:.*?\s+in\s+([a-zA-Z\s]+))?", msg)
             if match:
-                region = match.group(1).strip() if match.lastindex and match.group(1) else random.choice(known_regions)
+                region = match.group(1).strip().lower() if match.lastindex and match.group(1) else random.choice(known_regions)
+
                 return {
                     "type": "disaster_map",
                     "disaster": disaster,
