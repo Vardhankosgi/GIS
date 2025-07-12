@@ -266,7 +266,7 @@ def static_bot_response(message):
 **Here's what I am capable of answering:**
 
 --1. For Finding Local Places--
-* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map.
+* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map striclty use small towns.
 * Keywords: `hospital`, `school`, `clinic`, `atm`, `restaurant`
 
 --2. For Hazard & Disaster Information--
