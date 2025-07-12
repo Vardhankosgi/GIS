@@ -428,7 +428,8 @@ for msg in chat_history:
                 map_col, table_col = st.columns([1, 1])  
                 with map_col:
                     st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
-                    st_folium(map_obj, height=500, use_container_width=True)
+                    st_folium(map_obj, key=f"folium_{chat_id}_{chat_history.index(msg)}", height=500, use_container_width=True)
+
                 
                 with table_col:
                     st.markdown(f"### 📊 {msg['disaster'].capitalize()} Summary Table")
