@@ -285,27 +285,23 @@ def static_bot_response(message):
     
     for disaster, patterns in disaster_aliases.items():
         for pattern in patterns:
-            # Look for phrases like "flood.*in <region>"
-            region_match = re.search(rf"{pattern}.*\bin\s+([a-zA-Z\s]+)", msg)
+            # Try extracting a region
+            region_match = re.search(rf"{pattern}(?:\s+\w+){{0,5}}\s+in\s+([a-zA-Z\s]+)", msg)
             if region_match:
                 region = region_match.group(1).strip()
-                return {
-                    "type": "disaster_map",
-                    "disaster": disaster,
-                    "region": region,
-                    "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.capitalize()}"
-                }
-            
-            # If only disaster is mentioned without region
-            simple_match = re.search(rf"\b{pattern}\b", msg)
-            if simple_match:
-                return {
-                    "type": "disaster_map",
-                    "disaster": disaster,
-                    "region": "world",
-                    "content": f"🗺️ {disaster.capitalize()} Hazard Zones (Global View)"
-                }
-
+            else:
+                simple_match = re.search(rf"\b{pattern}\b", msg)
+                if simple_match:
+                    region = "world"
+                else:
+                    continue  # No match, try next pattern
+    
+            return {
+                "type": "disaster_map",
+                "disaster": disaster,
+                "region": region,
+                "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.capitalize()}"
+            }
 
 
     # 4. Global hazard view
