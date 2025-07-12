@@ -8,8 +8,62 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 
-def show_disaster_map(disaster_type: str, region: str = "india"):
+# --- Local GeoJSON data for demonstration ---
+# This simulates the kind of data you would get from a local file.
+# We use this to guarantee the map colors will always be shown.
+FLOOD_GEOJSON = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[76.2, 9.9], [76.3, 9.9], [76.3, 10.0], [76.2, 10.0], [76.2, 9.9]]]
+            },
+            "properties": {"risk_level": "High"}
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[76.3, 9.8], [76.4, 9.8], [76.4, 9.9], [76.3, 9.9], [76.3, 9.8]]]
+            },
+            "properties": {"risk_level": "Medium"}
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[76.4, 9.7], [76.5, 9.7], [76.5, 9.8], [76.4, 9.8], [76.4, 9.7]]]
+            },
+            "properties": {"risk_level": "Low"}
+        }
+    ]
+}
 
+LANDSLIDE_GEOJSON = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[77.15, 31.0], [77.25, 31.0], [77.25, 31.1], [77.15, 31.1], [77.15, 31.0]]]
+            },
+            "properties": {"risk_level": "High"}
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[77.2, 31.2], [77.3, 31.2], [77.3, 31.3], [77.2, 31.3], [77.2, 31.2]]]
+            },
+            "properties": {"risk_level": "Medium"}
+        }
+    ]
+}
+
+def show_disaster_map(disaster_type: str, region: str = "india"):
     bbox = {
         "india": [8.0, 68.0, 37.0, 97.0],
         "assam": [26.2, 89.7, 27.2, 93.6],
@@ -24,27 +78,42 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
     bounds = bbox.get(region_key, bbox["india"])
     center_lat = (bounds[0] + bounds[2]) / 2
     center_lon = (bounds[1] + bounds[3]) / 2
+    
+    # Use a higher zoom for regional maps
+    zoom_level = 6
+    if region_key == "india":
+        zoom_level = 4
 
-    # --- CHANGE: Adjusted zoom level to ensure global WMS layers render ---
-    m = leafmap.Map(center=[center_lat, center_lon], zoom=4, basemap="CartoDB.Positron")
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
 
     if disaster_type == "flood":
-        m.add_wms_layer(
-            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
-            layers="ndh:ndh-flood-hazard-frequency-distribution",
-            name="🌊 Flood Zones (Color)",
-            format="image/png",
-            transparent=True
-        )
+        # --- NEW: Use local GeoJSON with a style function ---
+        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
+        style_function = lambda x: {
+            "fillColor": "red" if x["properties"]["risk_level"] == "High" else 
+                         "orange" if x["properties"]["risk_level"] == "Medium" else 
+                         "lightblue",
+            "color": "black",
+            "weight": 1,
+            "fillOpacity": 0.6
+        }
+        folium.GeoJson(FLOOD_GEOJSON, name="Flood Risk", style_function=style_function).add_to(m)
+
     elif disaster_type == "landslide":
-        m.add_wms_layer(
-            url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
-            layers="Global_Landslide_Hazard_Map",
-            name="⛰️ Landslide Hazard (NASA)",
-            format="image/png",
-            transparent=True
-        )
+        # --- NEW: Use local GeoJSON with a style function ---
+        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
+        style_function = lambda x: {
+            "fillColor": "darkred" if x["properties"]["risk_level"] == "High" else 
+                         "darkorange" if x["properties"]["risk_level"] == "Medium" else 
+                         "yellow",
+            "color": "black",
+            "weight": 1,
+            "fillOpacity": 0.6
+        }
+        folium.GeoJson(LANDSLIDE_GEOJSON, name="Landslide Risk", style_function=style_function).add_to(m)
+
     elif disaster_type == "fire":
+        # Keep using the reliable NASA WMS layer for live data
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
             layers="MODIS_Terra_Thermal_Anomalies_Day",
@@ -336,7 +405,6 @@ for msg in chat_history:
             st.markdown(icon, unsafe_allow_html=True)
             st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
     
-            # Show map and summary for disaster type (e.g. flood, landslide, fire)
             show_disaster_map(msg["disaster"], msg.get("region", "india"))
             show_disaster_summary_table(msg["disaster"])
 
