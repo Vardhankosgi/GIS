@@ -18,6 +18,12 @@ FLOOD_GEOJSON = {
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.45, 9.81]}, "properties": {"risk_level": "Low"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.24, 10.05]}, "properties": {"risk_level": "High"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.40, 9.77]}, "properties": {"risk_level": "Low"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.31, 9.91]}, "properties": {"risk_level": "Medium"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.32, 10.03]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.38, 9.89]}, "properties": {"risk_level": "Medium"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.45, 9.81]}, "properties": {"risk_level": "Low"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.24, 10.05]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.40, 9.77]}, "properties": {"risk_level": "Low"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.31, 9.91]}, "properties": {"risk_level": "Medium"}}
     ]
 }
@@ -25,6 +31,11 @@ FLOOD_GEOJSON = {
 LANDSLIDE_GEOJSON = {
     "type": "FeatureCollection",
     "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.75, 25.85]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.79, 25.89]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.65, 25.75]}, "properties": {"risk_level": "Medium"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.78, 25.92]}, "properties": {"risk_level": "High"}},
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.68, 25.82]}, "properties": {"risk_level": "Medium"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.75, 25.85]}, "properties": {"risk_level": "High"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.79, 25.89]}, "properties": {"risk_level": "High"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.65, 25.75]}, "properties": {"risk_level": "Medium"}},
@@ -345,14 +356,14 @@ for msg in chat_history:
     
         elif msg["type"] == "disaster_map":
             st.markdown(icon, unsafe_allow_html=True)
-            map_col, table_col = st.columns([3, 1])
+            map_col, table_col = st.columns([4, 3])
             with map_col:
                 st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
                 map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
                 if map_obj:
-                    st_folium(map_obj, height=600, width=800)
+                    st_folium(map_obj, height=600, width=1000)
             with table_col:
-                st.markdown("### 📊 Disaster Summary Table")
+                st.markdown("### 📊Disaster Summary Table")
                 show_disaster_summary_table(msg["disaster"])
 
 user_input = st.chat_input("Type your question here...")
