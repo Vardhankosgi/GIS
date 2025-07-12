@@ -8,7 +8,7 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 
-# --- More detailed, scattered GeoJSON data for demonstration ---
+# --- Local GeoJSON data for demonstration ---
 FLOOD_GEOJSON = {
     "type": "FeatureCollection",
     "features": [
@@ -85,6 +85,33 @@ LANDSLIDE_GEOJSON = {
     ]
 }
 
+# ------------------- Static Response Data -------------------
+info_map = {
+    "forest_fire": "🔥 **Forest Fire Risk Zones:** Areas in red are highly susceptible due to vegetation and dry climate.",
+    "landslide": "⛰️ **Landslide Hazard Map:** Sloped regions vulnerable during monsoon are marked.",
+    "flood": "🌊 **Flood Hazard Zones:** Frequently affected low-lying areas.",
+    "global_hazard": "🌐 **Live Hazard Intelligence:** Real-time global view of wildfire, flood, landslide, and population data."
+}
+
+friendly_responses = {
+    "hi": "Hello! 👋 I'm your GIS assistant. Ask me about rainfall, landslides, floods, clinics, or schools.",
+    "hello": "Hi there! 😊 I'm here to help with hazard zones and local planning maps.",
+    "how are you": "I'm running smoothly! Ask about geographic risks or features.",
+    "how can you help": "You can ask things like 'Where are floods in Assam?' or 'Landslide risk in Himachal?'.",
+    "what can you do": "I show hazard maps, rainfall patterns, school & clinic locations, and more!",
+    "thanks": "You're welcome! Let me know if you need anything else."
+}
+
+updated_keywords = {
+    "hospital": {"amenity": "hospital"},
+    "clinic": {"amenity": "clinic"},
+    "atm": {"amenity": "atm"},
+    "restaurant": {"amenity": "restaurant"},
+    "bus stop": {"highway": "bus_stop"},
+    "school": {"amenity": "school"}
+}
+
+# ------------------- Functions -------------------
 def create_disaster_map(disaster_type: str, region: str = "india"):
     bbox = {
         "india": [8.0, 68.0, 37.0, 97.0],
@@ -107,6 +134,7 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
     
     if disaster_type == "flood":
+        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
         style_function = lambda x: {
             "fillColor": "red" if x["properties"]["risk_level"] == "High" else 
                          "orange" if x["properties"]["risk_level"] == "Medium" else 
@@ -119,6 +147,7 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
         m.fit_bounds(geojson_layer.get_bounds())
         
     elif disaster_type == "landslide":
+        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
         style_function = lambda x: {
             "fillColor": "darkred" if x["properties"]["risk_level"] == "High" else 
                          "darkorange" if x["properties"]["risk_level"] == "Medium" else 
@@ -155,7 +184,6 @@ def show_disaster_summary_table(hazard_type: str):
             "Frequency/Year": [4, 6, 2, 5, 1],
             "Risk Level": ["High", "Very High", "Medium", "High", "Low"]
         }, use_container_width=True)
-
     elif hazard_type == "flood":
         st.dataframe({
             "District": ["Barpeta", "Dhemaji", "Kochi", "Patna", "Guwahati"],
@@ -164,7 +192,6 @@ def show_disaster_summary_table(hazard_type: str):
             "Rainfall (mm)": [2200, 2100, 1800, 2400, 1900],
             "Relief Camps": [25, 18, 12, 22, 15]
         }, use_container_width=True)
-
     elif hazard_type == "fire":
         st.dataframe({
             "Region": ["Shimla", "Chamba", "Sirmaur", "Kullu", "Mandi"],
@@ -172,7 +199,6 @@ def show_disaster_summary_table(hazard_type: str):
             "Incidents": [45, 30, 25, 40, 38],
             "High Risk Zones": ["Yes", "Yes", "No", "Yes", "Yes"]
         }, use_container_width=True)
-
     elif hazard_type == "traffic":
         st.dataframe({
             "City": ["Delhi", "Mumbai", "Chennai", "Bengaluru", "Hyderabad"],
@@ -181,7 +207,6 @@ def show_disaster_summary_table(hazard_type: str):
             "Traffic Zones": ["Ring Rd", "Western Exp", "Anna Salai", "Outer Ring Rd", "Hitec City"]
         }, use_container_width=True)
 
-# ------------------- Global Hazard Map -------------------
 def show_global_hazard_dashboard(focus="all"):
     st.markdown("## 🌐 Global Hazard Map (Color Highlighted)")
     center_lat = 20.0
@@ -220,16 +245,6 @@ def show_global_hazard_dashboard(focus="all"):
             transparent=True
         )
     m.to_streamlit(height=600)
-
-# ------------------- Query Response -------------------
-updated_keywords = {
-    "hospital": {"amenity": "hospital"},
-    "clinic": {"amenity": "clinic"},
-    "atm": {"amenity": "atm"},
-    "restaurant": {"amenity": "restaurant"},
-    "bus stop": {"highway": "bus_stop"},
-    "school": {"amenity": "school"}
-}
 
 def static_bot_response(message):
     msg = message.lower().strip()
@@ -282,7 +297,6 @@ def static_bot_response(message):
         "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, or POIs like schools or hospitals."
     }
 
-# ------------------- OSM Query -------------------
 def get_osm_map_from_query(query, tags):
     try:
         place = query.split(" in ")[-1].strip().capitalize()
