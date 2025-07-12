@@ -11,6 +11,9 @@ from PIL import Image
 import geopandas as gpd
 from shapely.geometry import Point
 import io
+import base64
+from io import BytesIO
+from pydub import AudioSegment
 
 
 
@@ -391,25 +394,81 @@ if user_input:
     handle_user_input(user_input)
     st.rerun()
 
-# ------------------- Voice Input ------------------
+
+# ------------------- Browser-Based Voice Input ------------------
+
 st.markdown("🎤 Or use your voice:")
 
-if st.button("🎤 Start Voice Input"):
-    try:
-        recognizer = sr.Recognizer()
-        with sr.Microphone() as source:
-            st.info("Listening... Please speak now.")
-            try:
-                audio = recognizer.listen(source, timeout=5)
-                voice_text = recognizer.recognize_google(audio)
-                st.success(f"🗣️ You said: {voice_text}")
-                handle_user_input(voice_text)
-                st.rerun()
-            except sr.WaitTimeoutError:
-                st.warning("⏱️ No speech detected. Try again.")
-            except sr.UnknownValueError:
-                st.error("🤷 Could not understand audio.")
-            except sr.RequestError as e:
-                st.error(f"⚠️ Error with speech recognition: {e}")
-    except OSError as mic_err:
-        st.warning("🎙️ Microphone not accessible. This feature may not work in cloud or headless environments.")
+st.markdown("""
+<button id="start">🎙️ Start Recording</button>
+<button id="stop">⏹️ Stop Recording</button>
+<p id="status">Status: Not Recording</p>
+<audio id="audio" controls></audio>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+
+document.getElementById("start").onclick = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    document.getElementById("status").innerText = "Status: Recording...";
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = event => {
+        audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks);
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const audioUrl = URL.createObjectURL(audioBlob);
+        document.getElementById("audio").src = audioUrl;
+
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "audio_data";
+        input.value = base64;
+        document.body.appendChild(input);
+
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/";
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    };
+};
+
+document.getElementById("stop").onclick = () => {
+    mediaRecorder.stop();
+    document.getElementById("status").innerText = "Status: Stopped";
+};
+</script>
+""", unsafe_allow_html=True)
+
+# ------------------- Process Incoming Audio ------------------
+if "audio_data" not in st.session_state:
+    query_params = st.experimental_get_query_params()
+    if "audio_data" in query_params:
+        st.session_state.audio_data = query_params["audio_data"][0]
+
+if "audio_data" in st.session_state:
+    audio_bytes = base64.b64decode(st.session_state.audio_data)
+    audio = AudioSegment.from_file(BytesIO(audio_bytes), format="wav")
+    audio.export("recorded.wav", format="wav")
+
+    recognizer = sr.Recognizer()
+    with sr.AudioFile("recorded.wav") as source:
+        audio_data = recognizer.record(source)
+        try:
+            voice_text = recognizer.recognize_google(audio_data)
+            st.success(f"🗣️ You said: {voice_text}")
+            handle_user_input(voice_text)
+            st.session_state.pop("audio_data")  # Clear after use
+            st.rerun()
+        except Exception as e:
+            st.error(f"⚠️ Could not transcribe audio: {e}")
+
