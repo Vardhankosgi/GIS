@@ -14,6 +14,7 @@ import io
 import base64
 from io import BytesIO
 import streamlit.components.v1 as components
+import tempfile
 
 
 
@@ -397,10 +398,9 @@ if user_input:
 
 # ------------------- Browser-Based Voice Input ------------------
 
-
+# --- Voice input mic icon + JavaScript ---
 st.markdown("🎤 **Or use your voice:**")
 
-# Render a simple mic button with embedded JS
 components.html(
     """
     <style>
@@ -414,6 +414,7 @@ components.html(
     <button id="mic-btn">🎤</button>
     <script>
     const micBtn = document.getElementById("mic-btn");
+
     micBtn.onclick = async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
@@ -425,61 +426,49 @@ components.html(
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64Audio = reader.result.split(',')[1];
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = "audio_data";
+                input.value = base64Audio;
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.appendChild(input);
+                document.body.appendChild(form);
                 window.parent.postMessage({ type: 'streamlit:setComponentValue', value: base64Audio }, '*');
             };
             reader.readAsDataURL(blob);
         };
 
         mediaRecorder.start();
-        setTimeout(() => mediaRecorder.stop(), 3000); // Record for 3 seconds
+        setTimeout(() => mediaRecorder.stop(), 3000); // 3 seconds max
     };
     </script>
     """,
     height=80,
-    key="mic_html"
+    key="mic_btn"
 )
 
-# Receive and process voice input (base64)
-audio_base64 = st.experimental_get_query_params().get("audio_data") or st.experimental_get_query_params().get("value")
+# --- Handle audio if received ---
+audio_base64 = st.session_state.get("audio_data") or st.experimental_get_query_params().get("value")
+
 if audio_base64:
-    audio_bytes = base64.b64decode(audio_base64[0])
-    with open("voice.wav", "wb") as f:
-        f.write(audio_bytes)
+    if isinstance(audio_base64, list):
+        audio_base64 = audio_base64[0]
+
+    audio_bytes = base64.b64decode(audio_base64)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+        tmpfile.write(audio_bytes)
+        tmpfile_path = tmpfile.name
 
     recognizer = sr.Recognizer()
-    with sr.AudioFile("voice.wav") as source:
+    with sr.AudioFile(tmpfile_path) as source:
         audio = recognizer.record(source)
         try:
             text = recognizer.recognize_google(audio)
             st.success(f"🗣️ You said: {text}")
             handle_user_input(text)
+            st.session_state.audio_data = None
             st.rerun()
         except Exception as e:
             st.error("❌ Could not understand audio: " + str(e))
-
-
-# ------------------- Process Incoming Audio ------------------
-if "audio_data" not in st.session_state:
-    query_params = st.experimental_get_query_params()
-    if "audio_data" in query_params:
-        st.session_state.audio_data = query_params["audio_data"][0]
-
-if "audio_data" in st.session_state:
-    audio_bytes = base64.b64decode(st.session_state.audio_data)
-
-    with open("recorded.wav", "wb") as f:
-        f.write(audio_bytes)
-
-    recognizer = sr.Recognizer()
-    with sr.AudioFile("recorded.wav") as source:
-        audio_data = recognizer.record(source)
-        try:
-            voice_text = recognizer.recognize_google(audio_data)
-            st.success(f"🗣️ You said: {voice_text}")
-            handle_user_input(voice_text)
-            st.session_state.pop("audio_data")  # Clear after use
-            st.rerun()
-        except Exception as e:
-            st.error(f"⚠️ Could not transcribe audio: {e}")
-
 
