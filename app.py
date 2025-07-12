@@ -8,9 +8,7 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 
-# --- Local GeoJSON data for demonstration ---
-# This simulates the kind of data you would get from a local file.
-# We use this to guarantee the map colors will always be shown.
+# --- More detailed, scattered GeoJSON data for demonstration ---
 FLOOD_GEOJSON = {
     "type": "FeatureCollection",
     "features": [
@@ -37,6 +35,22 @@ FLOOD_GEOJSON = {
                 "coordinates": [[[76.45, 9.75], [76.50, 9.75], [76.50, 9.85], [76.45, 9.85], [76.45, 9.75]]]
             },
             "properties": {"risk_level": "Low"}
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[76.22, 10.02], [76.28, 10.02], [76.28, 10.08], [76.22, 10.08], [76.22, 10.02]]]
+            },
+            "properties": {"risk_level": "High"}
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[76.42, 9.78], [76.48, 9.78], [76.48, 9.88], [76.42, 9.88], [76.42, 9.78]]]
+            },
+            "properties": {"risk_level": "Low"}
         }
     ]
 }
@@ -59,11 +73,19 @@ LANDSLIDE_GEOJSON = {
                 "coordinates": [[[93.6, 25.7], [93.7, 25.7], [93.7, 25.8], [93.6, 25.8], [93.6, 25.7]]]
             },
             "properties": {"risk_level": "Medium"}
+        },
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[93.72, 25.85], [93.78, 25.85], [93.78, 25.95], [93.72, 25.95], [93.72, 25.85]]]
+            },
+            "properties": {"risk_level": "High"}
         }
     ]
 }
 
-def show_disaster_map(disaster_type: str, region: str = "india"):
+def create_disaster_map(disaster_type: str, region: str = "india"):
     bbox = {
         "india": [8.0, 68.0, 37.0, 97.0],
         "assam": [26.2, 89.7, 27.2, 93.6],
@@ -73,22 +95,18 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
         "pakistan": [23.6, 60.9, 36.8, 77.0],
         "sri lanka": [5.9, 79.3, 9.8, 82.0],
     }
-
+    
     region_key = region.lower()
     bounds = bbox.get(region_key, bbox["india"])
     center_lat = (bounds[0] + bounds[2]) / 2
     center_lon = (bounds[1] + bounds[3]) / 2
-    
-    # Use a higher zoom for regional maps
     zoom_level = 6
     if region_key == "india":
         zoom_level = 4
-
+    
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
-
+    
     if disaster_type == "flood":
-        # --- NEW: Use local GeoJSON with a style function ---
-        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
         style_function = lambda x: {
             "fillColor": "red" if x["properties"]["risk_level"] == "High" else 
                          "orange" if x["properties"]["risk_level"] == "Medium" else 
@@ -97,13 +115,10 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
             "weight": 1,
             "fillOpacity": 0.6
         }
-        
         geojson_layer = folium.GeoJson(FLOOD_GEOJSON, name="Flood Risk", style_function=style_function).add_to(m)
         m.fit_bounds(geojson_layer.get_bounds())
-
+        
     elif disaster_type == "landslide":
-        # --- NEW: Use local GeoJSON with a style function ---
-        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
         style_function = lambda x: {
             "fillColor": "darkred" if x["properties"]["risk_level"] == "High" else 
                          "darkorange" if x["properties"]["risk_level"] == "Medium" else 
@@ -112,12 +127,10 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
             "weight": 1,
             "fillOpacity": 0.6
         }
-        
         geojson_layer = folium.GeoJson(LANDSLIDE_GEOJSON, name="Landslide Risk", style_function=style_function).add_to(m)
         m.fit_bounds(geojson_layer.get_bounds())
-
+        
     elif disaster_type == "fire":
-        # Keep using the reliable NASA WMS layer for live data
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
             layers="MODIS_Terra_Thermal_Anomalies_Day",
@@ -127,28 +140,9 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
         )
     else:
         st.error("❌ Unknown disaster type.")
-        return
-
-    st.markdown(f"### 🗺️ {disaster_type.capitalize()} Risk Map ({region_key.capitalize()})")
-    m.to_streamlit(height=600)
-
-
-# ------------------- Static Response Data -------------------
-info_map = {
-    "forest_fire": "🔥 **Forest Fire Risk Zones:** Areas in red are highly susceptible due to vegetation and dry climate.",
-    "landslide": "⛰️ **Landslide Hazard Map:** Sloped regions vulnerable during monsoon are marked.",
-    "flood": "🌊 **Flood Hazard Zones:** Frequently affected low-lying areas.",
-    "global_hazard": "🌐 **Live Hazard Intelligence:** Real-time global view of wildfire, flood, landslide, and population data."
-}
-
-friendly_responses = {
-    "hi": "Hello! 👋 I'm your GIS assistant. Ask me about rainfall, landslides, floods, clinics, or schools.",
-    "hello": "Hi there! 😊 I'm here to help with hazard zones and local planning maps.",
-    "how are you": "I'm running smoothly! Ask about geographic risks or features.",
-    "how can you help": "You can ask things like 'Where are floods in Assam?' or 'Landslide risk in Himachal?'.",
-    "what can you do": "I show hazard maps, rainfall patterns, school & clinic locations, and more!",
-    "thanks": "You're welcome! Let me know if you need anything else."
-}
+        return None
+        
+    return m
 
 def show_disaster_summary_table(hazard_type: str):
     st.markdown("### 📊 Disaster Summary Table")
@@ -187,16 +181,12 @@ def show_disaster_summary_table(hazard_type: str):
             "Traffic Zones": ["Ring Rd", "Western Exp", "Anna Salai", "Outer Ring Rd", "Hitec City"]
         }, use_container_width=True)
 
-
 # ------------------- Global Hazard Map -------------------
 def show_global_hazard_dashboard(focus="all"):
     st.markdown("## 🌐 Global Hazard Map (Color Highlighted)")
-
     center_lat = 20.0
     center_lon = 80.0
-
     m = leafmap.Map(center=[center_lat, center_lon], zoom=2, basemap="CartoDB.Positron")
-
     if focus in ["all", "fire"]:
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi",
@@ -205,7 +195,6 @@ def show_global_hazard_dashboard(focus="all"):
             format="image/png",
             transparent=True
         )
-
     if focus in ["all", "flood"]:
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
@@ -214,7 +203,6 @@ def show_global_hazard_dashboard(focus="all"):
             format="image/png",
             transparent=True
         )
-
     if focus in ["all", "landslide"]:
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
@@ -223,7 +211,6 @@ def show_global_hazard_dashboard(focus="all"):
             format="image/png",
             transparent=True
         )
-
     if focus == "all":
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
@@ -232,9 +219,7 @@ def show_global_hazard_dashboard(focus="all"):
             format="image/png",
             transparent=True
         )
-
     m.to_streamlit(height=600)
-
 
 # ------------------- Query Response -------------------
 updated_keywords = {
@@ -248,11 +233,9 @@ updated_keywords = {
 
 def static_bot_response(message):
     msg = message.lower().strip()
-
     for key in friendly_responses:
         if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
             return {"type": "text", "content": friendly_responses[key]}
-
     for keyword, tags in updated_keywords.items():
         if keyword in msg and " in " in msg:
             return {
@@ -260,15 +243,11 @@ def static_bot_response(message):
                 "query": msg,
                 "tags": tags
             }
-
-    # 🌍 Global Hazard Dashboard
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
             "content": "🌐 Global Hazard Map"
         }
-
-    # 🌊 Specific Hazard Types
     if "flood" in msg:
         return {
             "type": "disaster_map",
@@ -287,8 +266,6 @@ def static_bot_response(message):
             "disaster": "fire",
             "content": "🔥 Forest Fire Risk Zones in India"
         }
-
-    # Help / Suggestions
     if "help" in msg or "question" in msg:
         return {
             "type": "question",
@@ -300,12 +277,10 @@ def static_bot_response(message):
                 "Show schools in Kathmandu"
             ]
         }
-
     return {
         "type": "text",
         "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, or POIs like schools or hospitals."
     }
-
 
 # ------------------- OSM Query -------------------
 def get_osm_map_from_query(query, tags):
@@ -314,11 +289,9 @@ def get_osm_map_from_query(query, tags):
         gdf = ox.features_from_place(place, tags)
         if gdf.empty:
             return None, f"⚠️ No data found for {list(tags.values())[0]} in {place}."
-
         gdf = gdf[gdf.geometry.type.isin(['Point', 'Polygon'])]
         gdf['lon'] = gdf.geometry.centroid.x
         gdf['lat'] = gdf.geometry.centroid.y
-
         m = folium.Map(location=[gdf['lat'].mean(), gdf['lon'].mean()], zoom_start=13)
         for _, row in gdf.iterrows():
             folium.Marker(
@@ -326,7 +299,6 @@ def get_osm_map_from_query(query, tags):
                 popup=row.get('name', 'Unnamed'),
                 icon=folium.Icon(color='green', icon='info-sign')
             ).add_to(m)
-
         label = list(tags.values())[0].capitalize()
         return m, f"📍 **{label}s in {place}:** Retrieved live from OpenStreetMap."
     except Exception as e:
@@ -347,7 +319,6 @@ if "current_chat_id" not in st.session_state:
 chat_id = st.session_state.current_chat_id
 chat_history = st.session_state.conversations[chat_id]
 
-# ------------------- Sidebar -------------------
 st.sidebar.header("💬 Chat Sessions")
 for cid in st.session_state.conversations:
     if st.sidebar.button(f"Chat {cid[:6]}", key=cid):
@@ -359,13 +330,11 @@ if st.sidebar.button("➕ New Chat"):
     st.session_state.current_chat_id = new_id
     st.rerun()
 
-# ------------------- Handle Input -------------------
 def handle_user_input(user_msg):
     chat_history.append({"role": "user", "type": "text", "content": user_msg})
     response = static_bot_response(user_msg)
     chat_history.append({"role": "bot", **response})
 
-# ------------------- Display Chat -------------------
 st.markdown("---")
 for msg in chat_history:
     is_bot = msg["role"] == "bot"
@@ -385,11 +354,8 @@ for msg in chat_history:
     
         elif msg["type"] == "global_hazard_map":
             st.markdown(icon, unsafe_allow_html=True)
-    
             hazard_type = "all"
-    
             content = msg.get("content", "").lower() if "content" in msg else ""
-    
             if "flood" in content:
                 hazard_type = "flood"
             elif "landslide" in content:
@@ -398,28 +364,27 @@ for msg in chat_history:
                 hazard_type = "fire"
             elif "traffic" in content:
                 hazard_type = "traffic"
-    
             show_global_hazard_dashboard(hazard_type)
-    
             st.markdown(f"<span style='font-size:14px'>{msg.get('content','')}</span>", unsafe_allow_html=True)
             show_disaster_summary_table(hazard_type)
     
-    
-        elif msg["type"] == "disaster_map": 
+        elif msg["type"] == "disaster_map":
             st.markdown(icon, unsafe_allow_html=True)
-            st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
-    
-            show_disaster_map(msg["disaster"], msg.get("region", "india"))
-            show_disaster_summary_table(msg["disaster"])
+            map_col, table_col = st.columns(2)
+            with map_col:
+                st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
+                map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
+                if map_obj:
+                    st_folium(map_obj, width=700, height=500)
+            with table_col:
+                st.markdown("### 📊 Disaster Summary Table")
+                show_disaster_summary_table(msg["disaster"])
 
-
-# ------------------- Input Field -------------------
 user_input = st.chat_input("Type your question here...")
 if user_input:
     handle_user_input(user_input)
     st.rerun()
 
-# ------------------- Voice Input -------------------
 st.markdown("🎤 Or use your voice:")
 if st.button("🎤 Start Voice Input"):
     recognizer = sr.Recognizer()
