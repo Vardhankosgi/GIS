@@ -205,12 +205,6 @@ def static_bot_response(message):
             "content": "🔥 Active Forest Fires across India"
         }
 
-    # Image-based legacy keywords (optional if you're phasing out base64/asset logic)
-    if "rainfall" in msg and "july" in msg:
-        return respond_with("rainfall_july")
-    elif "traffic" in msg:
-        return respond_with("traffic")
-
     # Help / Suggestions
     elif "help" in msg or "question" in msg:
         return {
