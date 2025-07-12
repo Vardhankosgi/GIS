@@ -65,18 +65,20 @@ updated_keywords = {
 }
 
 # ------------------- Functions -------------------
-def create_disaster_map(disaster_type: str, region: str = "india"):
+def create_disaster_map(disaster_type: str, region: str = "world"):
     try:
-        # Try to geocode the region
+        # Attempt to geocode the specified region
         gdf = ox.geocode_to_gdf(region)
         center_lat = gdf.geometry.centroid.y.values[0]
         center_lon = gdf.geometry.centroid.x.values[0]
-        zoom_level = 7 if region.lower() != "india" else 4
+        zoom_level = 7 if region.lower() not in ["india", "world"] else 4
+        st.info(f"📍 Displaying map centered on {region.title()}.")
     except Exception:
-        center_lat = 22.0
-        center_lon = 79.0
-        zoom_level = 4
-        st.warning(f"⚠️ Could not geocode location '{region}'. Showing default India map.")
+        # Fallback to a global view if geocoding fails.
+        center_lat = 20.0
+        center_lon = 0.0
+        zoom_level = 2
+        st.warning(f"⚠️ Could not geocode location '{region}'. Showing a global map instead.")
 
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
 
@@ -89,6 +91,7 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             format="image/png",
             transparent=True
         )
+        # Add hardcoded point data for a demonstration, if within the view
         color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
         for feature in FLOOD_GEOJSON["features"]:
             lon, lat = feature["geometry"]["coordinates"]
@@ -112,6 +115,7 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             format="image/png",
             transparent=True
         )
+        # Add hardcoded point data for a demonstration, if within the view
         color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
         for feature in LANDSLIDE_GEOJSON["features"]:
             lon, lat = feature["geometry"]["coordinates"]
@@ -178,7 +182,7 @@ def show_disaster_summary_table(hazard_type: str):
 def show_global_hazard_dashboard(focus="all"):
     st.markdown("## 🌐 Global Hazard Map (Color Highlighted)")
     center_lat = 20.0
-    center_lon = 80.0
+    center_lon = 0.0
     m = leafmap.Map(center=[center_lat, center_lon], zoom=2, basemap="CartoDB.Positron")
     if focus in ["all", "fire"]:
         m.add_wms_layer(
@@ -228,13 +232,25 @@ def static_bot_response(message):
                     "tags": tags
                 }
             else:
-                # Assume default place if no "in" is found
-                default_place = "India"  # or any city like "Delhi" or "Itahari"
+                default_place = "world"
                 return {
                     "type": "dynamic_map",
                     "query": f"{keyword} in {default_place}",
                     "tags": tags
                 }
+
+    # Enhanced regex to capture plurals and multi-word terms like "land slides"
+    match = re.search(r'\b(floods?|landslides?|land\s*slides?|fires?)\b(?:\s+in\s+([a-z\s]+))?', msg)
+
+    if match:
+        disaster_type = match.group(1).replace("s", "") # Normalize to singular
+        region = match.group(2) if match.group(2) else "world"
+        return {
+            "type": "disaster_map",
+            "disaster": disaster_type.strip(),
+            "region": region.strip() if region else "world",
+            "content": f"🗺️ {disaster_type.capitalize()} Hazard Zones in {region.capitalize() if region else 'World'}"
+        }
 
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
@@ -242,24 +258,12 @@ def static_bot_response(message):
             "content": "🌐 Global Hazard Map"
         }
     
-    match = re.search(r'\b(flood|landslide|fire)\b(?:\s+in\s+([a-z\s]+))?', msg)
-
-    if match:
-        disaster_type = match.group(1)
-        region = match.group(2) if match.group(2) else "india"
-        return {
-            "type": "disaster_map",
-            "disaster": disaster_type,
-            "region": region.strip() if region else "india",
-            "content": f"🗺️ {disaster_type.capitalize()} Hazard Zones in {region.capitalize() if region else 'India'}"
-        }
-
     if "help" in msg or "question" in msg:
         help_text = """
 **Here's what I am capable of answering:**
 
 --1. For Finding Local Places--
-* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map striclty use small towns.
+* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map.
 * Keywords: `hospital`, `school`, `clinic`, `atm`, `restaurant`
 
 --2. For Hazard & Disaster Information--
@@ -284,12 +288,15 @@ def get_osm_map_from_query(query, tags):
     try:
         place = query.split(" in ")[-1].strip()
         gdf = ox.features_from_place(place, tags)
+        
         if gdf.empty:
             return None, f"⚠️ No data found for {list(tags.values())[0]} in {place}."
+        
         gdf = gdf[gdf.geometry.type.isin(['Point', 'Polygon'])]
         gdf['lon'] = gdf.geometry.centroid.x
         gdf['lat'] = gdf.geometry.centroid.y
         m = folium.Map(location=[gdf['lat'].mean(), gdf['lon'].mean()], zoom_start=13)
+        
         for _, row in gdf.iterrows():
             folium.Marker(
                 location=[row['lat'], row['lon']],
@@ -299,7 +306,7 @@ def get_osm_map_from_query(query, tags):
         label = list(tags.values())[0].capitalize()
         return m, f"📍 **{label}s in {place}:** Retrieved live from OpenStreetMap."
     except Exception as e:
-        return None, f"❌ Error retrieving map: {str(e)}"
+        return None, f"❌ Error retrieving map for '{place}'. Please try a more specific location. Error: {str(e)}"
 
 # ------------------- Streamlit UI -------------------
 st.set_page_config("GIS Assistant", layout="wide")
@@ -343,14 +350,14 @@ for msg in chat_history:
             st.markdown(f"{icon} <span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
         
         elif msg["type"] == "dynamic_map":
+            st.markdown(icon, unsafe_allow_html=True)
             map_obj, summary = get_osm_map_from_query(msg["query"], msg["tags"])
             if map_obj:
-                st.markdown(icon, unsafe_allow_html=True)
                 st_data = st_folium(map_obj, key=f"map_{chat_id}_osm_{chat_history.index(msg)}", width=700, height=500)
                 st.markdown(f"<span style='font-size:14px'>{summary}</span>", unsafe_allow_html=True)
             else:
                 st.error(summary)
-    
+        
         elif msg["type"] == "global_hazard_map":
             st.markdown(icon, unsafe_allow_html=True)
             hazard_type = "all"
@@ -369,11 +376,11 @@ for msg in chat_history:
             
             st.markdown(f"<span style='font-size:14px'>{msg.get('content','')}</span>", unsafe_allow_html=True)
             show_disaster_summary_table(hazard_type)
-    
+        
         elif msg["type"] == "disaster_map":
             st.markdown(icon, unsafe_allow_html=True)
             
-            map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
+            map_obj = create_disaster_map(msg["disaster"], msg.get("region", "world"))
             if map_obj:
                 map_col, table_col = st.columns([1, 1])  
                 with map_col:
@@ -383,10 +390,6 @@ for msg in chat_history:
                 with table_col:
                     st.markdown(f"### 📊 {msg['disaster'].capitalize()} Summary Table")
                     show_disaster_summary_table(msg["disaster"])
-
-# ------------------- Input Field -------------------
-# ------------------- All your existing code goes here -------------------
-# ... (all the code from before, up to the end of the chat input) ...
 
 # ------------------- Input Field -------------------
 user_input = st.chat_input("Type your question here...")
@@ -407,14 +410,20 @@ class AudioProcessor(AudioProcessorBase):
         raw_audio_bytes = frame.to_ndarray().tobytes()
         audio_stream = io.BytesIO(raw_audio_bytes)
         try:
-            with sr.AudioFile(audio_stream) as source:
-                audio = self.recognizer.record(source)
-                text = self.recognizer.recognize_google(audio)
-                if text and text != self.last_text:
-                    self.transcribed = text
-                    self.last_text = text
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
+                # Write audio data to a temporary WAV file
+                temp_audio_file.write(raw_audio_bytes)
+                temp_audio_file.seek(0)
+                
+                with sr.AudioFile(temp_audio_file.name) as source:
+                    audio = self.recognizer.record(source)
+                    text = self.recognizer.recognize_google(audio)
+                    if text and text != self.last_text:
+                        self.transcribed = text
+                        self.last_text = text
         except (sr.UnknownValueError, sr.RequestError, Exception) as e:
-            st.error(f"Error during transcription: {e}")
+            # st.error(f"Error during transcription: {e}") # This causes issues inside the thread
+            pass # Suppress error to avoid issues with Streamlit thread safety
         return frame
 
 webrtc_ctx = webrtc_streamer(
@@ -430,17 +439,16 @@ if webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
     new_transcription = webrtc_ctx.audio_processor.transcribed
     
     if new_transcription:
-        # Update session state to display the transcription in the chat input box
         st.session_state.voice_input = new_transcription
 
 # Create a text input for the voice transcription
-if 'voice_input' in st.session_state:
-    st.text_input("Transcribed Text:", value=st.session_state.voice_input, key='voice_transcription_input')
-    st.session_state.voice_input = "" # Clear the state after use
-
+if 'voice_input' in st.session_state and st.session_state.voice_input:
+    # Use a unique key to prevent re-rendering issues
+    transcribed_text = st.text_input("Transcribed Text:", value=st.session_state.voice_input, key='voice_transcription_input')
+    
     if st.button("Submit Voice Query"):
-        query = st.session_state.voice_transcription_input
+        query = transcribed_text
         if query:
             handle_user_input(query)
-            st.session_state.voice_transcription_input = "" # Clear input field
+            st.session_state.voice_input = "" # Clear state
             st.rerun()
