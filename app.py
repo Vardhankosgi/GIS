@@ -423,21 +423,35 @@ class AudioProcessor(AudioProcessorBase):
         return frame
 
 # ------------------- Browser-Based Voice Input ------------------
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.recognizer = sr.Recognizer()
+        self.transcribed = None
 
-st.markdown("Use the microphone here to ask your question", unsafe_allow_html=True)
+    def recv(self, frame: av.AudioFrame):
+        wav_bytes = frame.to_ndarray().tobytes()
+        with open("temp_audio.wav", "wb") as f:
+            f.write(wav_bytes)
+        try:
+            with sr.AudioFile("temp_audio.wav") as source:
+                audio = self.recognizer.record(source)
+                text = self.recognizer.recognize_google(audio)
+                self.transcribed = text
+        except Exception as e:
+            self.transcribed = f"❌ Could not understand: {e}"
+        return frame
 
-# Just show mic icon without "Start" button
+st.markdown("### 🎙️ Use the microphone here to ask your question", unsafe_allow_html=True)
+
+# ✅ Use WebRtcMode.SENDONLY for correct enum
 ctx = webrtc_streamer(
     key="speech",
-    mode="sendonly",
-    in_audio=True,
+    mode=WebRtcMode.SENDONLY,
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False},
-    async_processing=True,
-    rtc_configuration={  # optional: improve compatibility
-        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-    }
+    async_processing=True
 )
 
 if ctx and ctx.audio_processor:
