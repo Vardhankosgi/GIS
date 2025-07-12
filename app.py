@@ -61,28 +61,13 @@ updated_keywords = {
 
 # ------------------- Functions -------------------
 def create_disaster_map(disaster_type: str, region: str = "india"):
-    bbox = {
-        "india": [8.0, 68.0, 37.0, 97.0],
-        "assam": [26.2, 89.7, 27.2, 93.6],
-        "himachal": [31.0, 76.5, 32.7, 78.7],
-        "nepal": [26.3, 80.0, 30.5, 88.2],
-        "bangladesh": [20.5, 88.0, 26.5, 92.5],
-        "pakistan": [23.6, 60.9, 36.8, 77.0],
-        "sri lanka": [5.9, 79.3, 9.8, 82.0],
-    }
-    
-    region_key = region.lower()
-    bounds = bbox.get(region_key, bbox["india"])
-    center_lat = (bounds[0] + bounds[2]) / 2
-    center_lon = (bounds[1] + bounds[3]) / 2
-    zoom_level = 6
-    if region_key == "india":
-        zoom_level = 4
+    center_lat = 22.0
+    center_lon = 79.0
+    zoom_level = 4
     
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
     
     if disaster_type == "flood":
-        # Add the live WMS layer for flood data
         st.markdown("🌐 **Note:** The underlying map shows live flood data, with specific points highlighted in colors for demonstration.")
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
@@ -92,7 +77,6 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
         
-        # Add our custom circles on top of the live layer
         geojson_data = FLOOD_GEOJSON
         color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
         for feature in geojson_data["features"]:
@@ -109,7 +93,6 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             ).add_to(m)
         
     elif disaster_type == "landslide":
-        # Add the live WMS layer for landslide data
         st.markdown("🌐 **Note:** The underlying map shows live landslide data, with specific points highlighted in colors for demonstration.")
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
@@ -119,7 +102,6 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
         
-        # Add our custom circles on top of the live layer
         geojson_data = LANDSLIDE_GEOJSON
         color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
         for feature in geojson_data["features"]:
@@ -332,11 +314,12 @@ for msg in chat_history:
         icon = "<span style='font-size:30px;'>🤖</span>" if is_bot else "<span style='font-size:30px;'>🙋</span>"
         if msg["type"] == "text":
             st.markdown(f"{icon} <span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
+        
         elif msg["type"] == "dynamic_map":
             map_obj, summary = get_osm_map_from_query(msg["query"], msg["tags"])
             if map_obj:
                 st.markdown(icon, unsafe_allow_html=True)
-                st_data = st_folium(map_obj, width=700, height=500)
+                st_data = st_folium(map_obj, key=f"map_{chat_id}_osm_{chat_history.index(msg)}", width=700, height=500)
                 st.markdown(f"<span style='font-size:14px'>{summary}</span>", unsafe_allow_html=True)
             else:
                 st.error(summary)
@@ -353,18 +336,23 @@ for msg in chat_history:
                 hazard_type = "fire"
             elif "traffic" in content:
                 hazard_type = "traffic"
-            show_global_hazard_dashboard(hazard_type)
+            
+            with st.container():
+                show_global_hazard_dashboard(hazard_type)
+            
             st.markdown(f"<span style='font-size:14px'>{msg.get('content','')}</span>", unsafe_allow_html=True)
             show_disaster_summary_table(hazard_type)
     
         elif msg["type"] == "disaster_map":
             st.markdown(icon, unsafe_allow_html=True)
-            map_col, table_col = st.columns([3, 1])
+            # Use a 70/30 ratio for map and table, spanning full width
+            map_col, table_col = st.columns([7, 3])
             with map_col:
                 st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
                 map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
                 if map_obj:
-                    st_folium(map_obj, height=600, width=800)
+                    # Make map fill the container width and set a fixed height
+                    st_folium(map_obj, key=f"map_{chat_id}_disaster_{chat_history.index(msg)}", height=600, use_container_width=True)
             with table_col:
                 st.markdown("### 📊 Disaster Summary Table")
                 show_disaster_summary_table(msg["disaster"])
