@@ -344,8 +344,11 @@ for msg in chat_history:
         elif msg["type"] == "disaster_map": 
             st.markdown(icon, unsafe_allow_html=True)
             st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
+        
+            # Show specific disaster map (like fire, flood, landslide) and summary
             show_disaster_map(msg["disaster"], msg.get("region", "india"))
             show_disaster_summary_table(msg["disaster"])
+
 
 
 
