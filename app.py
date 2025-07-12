@@ -25,10 +25,10 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
     center_lat = (bounds[0] + bounds[2]) / 2
     center_lon = (bounds[1] + bounds[3]) / 2
 
-    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.Positron")
+    # --- CHANGE: Adjusted zoom level to ensure global WMS layers render ---
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=4, basemap="CartoDB.Positron")
 
     if disaster_type == "flood":
-        # Keep the original flood layer; it might be working
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
             layers="ndh:ndh-flood-hazard-frequency-distribution",
@@ -37,7 +37,6 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
     elif disaster_type == "landslide":
-        # --- CHANGE: Using a more reliable WMS layer from NASA GIBS ---
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
             layers="Global_Landslide_Hazard_Map",
