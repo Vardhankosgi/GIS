@@ -18,12 +18,6 @@ FLOOD_GEOJSON = {
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.45, 9.81]}, "properties": {"risk_level": "Low"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.24, 10.05]}, "properties": {"risk_level": "High"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.40, 9.77]}, "properties": {"risk_level": "Low"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.31, 9.91]}, "properties": {"risk_level": "Medium"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.32, 10.03]}, "properties": {"risk_level": "High"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.38, 9.89]}, "properties": {"risk_level": "Medium"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.45, 9.81]}, "properties": {"risk_level": "Low"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.24, 10.05]}, "properties": {"risk_level": "High"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.40, 9.77]}, "properties": {"risk_level": "Low"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [76.31, 9.91]}, "properties": {"risk_level": "Medium"}}
     ]
 }
@@ -31,11 +25,6 @@ FLOOD_GEOJSON = {
 LANDSLIDE_GEOJSON = {
     "type": "FeatureCollection",
     "features": [
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.75, 25.85]}, "properties": {"risk_level": "High"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.79, 25.89]}, "properties": {"risk_level": "High"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.65, 25.75]}, "properties": {"risk_level": "Medium"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.78, 25.92]}, "properties": {"risk_level": "High"}},
-        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.68, 25.82]}, "properties": {"risk_level": "Medium"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.75, 25.85]}, "properties": {"risk_level": "High"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.79, 25.89]}, "properties": {"risk_level": "High"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [93.65, 25.75]}, "properties": {"risk_level": "Medium"}},
@@ -93,10 +82,19 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
     
     if disaster_type == "flood":
-        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
+        # Add the live WMS layer for flood data
+        st.markdown("🌐 **Note:** The underlying map shows live flood data, with specific points highlighted in colors for demonstration.")
+        m.add_wms_layer(
+            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
+            layers="ndh:ndh-flood-hazard-frequency-distribution",
+            name="🌊 Flood Risk (Live)",
+            format="image/png",
+            transparent=True
+        )
+        
+        # Add our custom circles on top of the live layer
         geojson_data = FLOOD_GEOJSON
         color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
-        
         for feature in geojson_data["features"]:
             lon, lat = feature["geometry"]["coordinates"]
             risk_level = feature["properties"]["risk_level"]
@@ -110,13 +108,20 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
                 tooltip=f"{risk_level} Flood Risk"
             ).add_to(m)
         
-        m.fit_bounds(m.get_bounds())
-
     elif disaster_type == "landslide":
-        st.markdown("🚨 **Note:** This map uses local data for demonstration to ensure the colors appear.")
+        # Add the live WMS layer for landslide data
+        st.markdown("🌐 **Note:** The underlying map shows live landslide data, with specific points highlighted in colors for demonstration.")
+        m.add_wms_layer(
+            url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
+            layers="Global_Landslide_Hazard_Map",
+            name="⛰️ Landslide Susceptibility (Live)",
+            format="image/png",
+            transparent=True
+        )
+        
+        # Add our custom circles on top of the live layer
         geojson_data = LANDSLIDE_GEOJSON
         color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
-        
         for feature in geojson_data["features"]:
             lon, lat = feature["geometry"]["coordinates"]
             risk_level = feature["properties"]["risk_level"]
@@ -129,8 +134,6 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
                 fill_opacity=0.6,
                 tooltip=f"{risk_level} Landslide Risk"
             ).add_to(m)
-            
-        m.fit_bounds(m.get_bounds())
         
     elif disaster_type == "fire":
         m.add_wms_layer(
@@ -356,14 +359,14 @@ for msg in chat_history:
     
         elif msg["type"] == "disaster_map":
             st.markdown(icon, unsafe_allow_html=True)
-            map_col, table_col = st.columns([4, 3])
+            map_col, table_col = st.columns([3, 1])
             with map_col:
                 st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
                 map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
                 if map_obj:
-                    st_folium(map_obj, height=600, width=1000)
+                    st_folium(map_obj, height=600, width=800)
             with table_col:
-                st.markdown("### 📊Disaster Summary Table")
+                st.markdown("### 📊 Disaster Summary Table")
                 show_disaster_summary_table(msg["disaster"])
 
 user_input = st.chat_input("Type your question here...")
