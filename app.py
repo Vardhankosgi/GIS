@@ -71,7 +71,7 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
         gdf = ox.geocode_to_gdf(region)
         center_lat = gdf.geometry.centroid.y.values[0]
         center_lon = gdf.geometry.centroid.x.values[0]
-        zoom_level = 7 if region.lower() not in ["india", "world"] else 4
+        zoom_level = 6 if region.lower() not in ["india", "world"] else 4
         st.info(f"📍 Displaying map centered on {region.title()}.")
     except Exception:
         # Fallback to a global view if geocoding fails.
@@ -82,6 +82,8 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
 
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
 
+    color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
+
     if disaster_type == "flood":
         st.markdown("🌊 **Flood Hazard Map**")
         m.add_wms_layer(
@@ -91,20 +93,19 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             format="image/png",
             transparent=True
         )
-        # Add hardcoded point data for a demonstration, if within the view
-        color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
-        for feature in FLOOD_GEOJSON["features"]:
-            lon, lat = feature["geometry"]["coordinates"]
-            risk_level = feature["properties"]["risk_level"]
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=10,
-                color="black",
-                weight=1,
-                fill_color=color_map[risk_level],
-                fill_opacity=0.6,
-                tooltip=f"{risk_level} Flood Risk"
-            ).add_to(m)
+        if region.lower() == "india":
+            for feature in FLOOD_GEOJSON["features"]:
+                lon, lat = feature["geometry"]["coordinates"]
+                risk_level = feature["properties"]["risk_level"]
+                folium.CircleMarker(
+                    location=[lat, lon],
+                    radius=10,
+                    color="black",
+                    weight=1,
+                    fill_color=color_map[risk_level],
+                    fill_opacity=0.6,
+                    tooltip=f"{risk_level} Flood Risk"
+                ).add_to(m)
 
     elif disaster_type == "landslide":
         st.markdown("⛰️ **Landslide Hazard Map**")
@@ -115,20 +116,19 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             format="image/png",
             transparent=True
         )
-        # Add hardcoded point data for a demonstration, if within the view
-        color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
-        for feature in LANDSLIDE_GEOJSON["features"]:
-            lon, lat = feature["geometry"]["coordinates"]
-            risk_level = feature["properties"]["risk_level"]
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=10,
-                color="black",
-                weight=1,
-                fill_color=color_map[risk_level],
-                fill_opacity=0.6,
-                tooltip=f"{risk_level} Landslide Risk"
-            ).add_to(m)
+        if region.lower() == "india":
+            for feature in LANDSLIDE_GEOJSON["features"]:
+                lon, lat = feature["geometry"]["coordinates"]
+                risk_level = feature["properties"]["risk_level"]
+                folium.CircleMarker(
+                    location=[lat, lon],
+                    radius=10,
+                    color="black",
+                    weight=1,
+                    fill_color=color_map[risk_level],
+                    fill_opacity=0.6,
+                    tooltip=f"{risk_level} Landslide Risk"
+                ).add_to(m)
 
     elif disaster_type == "fire":
         st.markdown("🔥 **Forest Fire Risk Map**")
@@ -139,6 +139,7 @@ def create_disaster_map(disaster_type: str, region: str = "world"):
             format="image/png",
             transparent=True
         )
+
     else:
         st.error("❌ Unknown disaster type.")
         return None
@@ -220,65 +221,68 @@ def show_global_hazard_dashboard(focus="all"):
 
 def static_bot_response(message):
     msg = message.lower().strip()
+
+    # 1. Friendly text responses
     for key in friendly_responses:
         if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
             return {"type": "text", "content": friendly_responses[key]}
+
+    # 2. Place-based POIs
     for keyword, tags in updated_keywords.items():
-        if keyword in msg:
-            if " in " in msg:
+        if re.search(rf"\b{keyword}s?\b", msg):  # Accept both singular and plural
+            region = "world"
+            match = re.search(rf"\b{keyword}s?\b\s*(in\s+([a-z\s]+))?", msg)
+            if match and match.group(2):
+                region = match.group(2).strip()
+            return {
+                "type": "dynamic_map",
+                "query": f"{keyword} in {region}",
+                "tags": tags
+            }
+
+    # 3. Disaster hazards - normalize input
+    disaster_aliases = {
+        "flood": ["flood", "floods", "flooding"],
+        "landslide": ["landslide", "landslides", "land slides"],
+        "fire": ["fire", "fires", "wildfire", "forest fire"]
+    }
+
+    for disaster, variations in disaster_aliases.items():
+        for alias in variations:
+            if re.search(rf"\b{alias}\b", msg):
+                match = re.search(rf"{alias}(?:\s+in\s+([a-z\s]+))?", msg)
+                region = match.group(1).strip() if match and match.group(1) else "world"
                 return {
-                    "type": "dynamic_map",
-                    "query": msg,
-                    "tags": tags
-                }
-            else:
-                default_place = "world"
-                return {
-                    "type": "dynamic_map",
-                    "query": f"{keyword} in {default_place}",
-                    "tags": tags
+                    "type": "disaster_map",
+                    "disaster": disaster,
+                    "region": region,
+                    "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.capitalize()}"
                 }
 
-    # Enhanced regex to capture plurals and multi-word terms like "land slides"
-    match = re.search(r'\b(floods?|landslides?|land\s*slides?|fires?)\b(?:\s+in\s+([a-z\s]+))?', msg)
-
-    if match:
-        disaster_type = match.group(1).replace("s", "") # Normalize to singular
-        region = match.group(2) if match.group(2) else "world"
-        return {
-            "type": "disaster_map",
-            "disaster": disaster_type.strip(),
-            "region": region.strip() if region else "world",
-            "content": f"🗺️ {disaster_type.capitalize()} Hazard Zones in {region.capitalize() if region else 'World'}"
-        }
-
+    # 4. Global hazard view
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
             "content": "🌐 Global Hazard Map"
         }
-    
+
+    # 5. Help
     if "help" in msg or "question" in msg:
         help_text = """
 **Here's what I am capable of answering:**
 
 --1. For Finding Local Places--
-* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map.
-* Keywords: `hospital`, `school`, `clinic`, `atm`, `restaurant`
+Keywords: `hospital`, `school`, `clinic`, `atm`, `restaurant`
 
 --2. For Hazard & Disaster Information--
-* What it does: Displays maps and data tables for specific hazards.
-* Keywords: `flood`, `landslide`, `fire`, `global hazard`
+Keywords: `flood`, `landslide`, `fire`, `global hazard`
 
 --3. For General Interaction--
-* What it does: Provides friendly responses and general information about the bot.
-* Keywords: `hi`, `hello`, `how can you help`, `what can you do`
+Keywords: `hi`, `hello`, `how can you help`, `what can you do`
 """
-        return {
-            "type": "text",
-            "content": help_text
-        }
-    
+        return {"type": "text", "content": help_text}
+
+    # 6. Default fallback
     return {
         "type": "text",
         "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, or POIs like schools or hospitals."
