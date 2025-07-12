@@ -424,35 +424,26 @@ class AudioProcessor(AudioProcessorBase):
 
 # ------------------- Browser-Based Voice Input ------------------
 
-st.markdown("### 🎤 Use the microphone here to ask your question")
 
-mic_col1, mic_col2, mic_col3 = st.columns([4, 1, 4])
-with mic_col2:
-    st.markdown("<div style='text-align: center;'>🎙️</div>", unsafe_allow_html=True)
+st.markdown("Use the microphone here to ask your question", unsafe_allow_html=True)
 
+# Just show mic icon without "Start" button
 ctx = webrtc_streamer(
     key="speech",
-    mode=WebRtcMode.SENDONLY,
+    mode="sendonly",
+    in_audio=True,
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False},
     async_processing=True,
+    rtc_configuration={  # optional: improve compatibility
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    }
 )
-
-if ctx and ctx.state.playing:
-    result = ctx.audio_processor.transcribed if ctx.audio_processor else None
-    if result:
-        st.success(f"🗣️ You said: {result}")
-        handle_user_input(result)
-        ctx.audio_processor.transcribed = None
-        st.rerun()
-elif ctx and not ctx.state.playing:
-    st.warning("🔇 Waiting for microphone permission. Please allow access to the mic in your browser.")
-
 
 if ctx and ctx.audio_processor:
     result = ctx.audio_processor.transcribed
     if result:
         st.success(f"🗣️ You said: {result}")
         handle_user_input(result)
-        ctx.audio_processor.transcribed = None  # reset
+        ctx.audio_processor.transcribed = None
         st.rerun()
