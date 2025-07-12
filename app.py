@@ -190,7 +190,7 @@ def static_bot_response(message):
         if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
             return {"type": "text", "content": friendly_responses[key]}
 
-    # Check if the message matches known POI types and includes a location
+    # POI map queries (school, hospital, etc.)
     for keyword, tags in updated_keywords.items():
         if keyword in msg and " in " in msg:
             return {
@@ -199,27 +199,49 @@ def static_bot_response(message):
                 "tags": tags
             }
 
-    # 🎯 WMS-Based Disaster Map Triggers
-    if "flood" in  msg:
+    # 🌐 Global Hazard Map Triggers
+    if "global" in msg and ("hazard" in msg or "map" in msg):
+        return {
+            "type": "global_hazard_map",
+            "content": "🌐 Global Hazard Overview"
+        }
+    elif "global" in msg and "fire" in msg:
+        return {
+            "type": "global_hazard_map",
+            "content": "🔥 Global Fire Risk Map"
+        }
+    elif "global" in msg and "flood" in msg:
+        return {
+            "type": "global_hazard_map",
+            "content": "🌊 Global Flood Hazard Map"
+        }
+    elif "global" in msg and "landslide" in msg:
+        return {
+            "type": "global_hazard_map",
+            "content": "⛰️ Global Landslide Risk Map"
+        }
+
+    # 🗺️ Disaster maps by keyword
+    if "flood" in msg:
         return {
             "type": "disaster_map",
             "disaster": "flood",
             "content": "🌊 Flood Hazard Zones in Assam"
         }
-    elif "landslide" in  msg:
+    elif "landslide" in msg:
         return {
             "type": "disaster_map",
             "disaster": "landslide",
             "content": "⛰️ Landslide Risk in Himachal Pradesh"
         }
-    elif "fire" in  msg:
+    elif "fire" in msg:
         return {
             "type": "disaster_map",
             "disaster": "fire",
             "content": "🔥 Active Forest Fires across India"
         }
 
-    # Help / Suggestions
+    # ❓ Help / Suggestions
     elif "help" in msg or "question" in msg:
         return {
             "type": "question",
@@ -230,11 +252,12 @@ def static_bot_response(message):
                 "Show rainfall intensity for July.",
                 "Show traffic zones in India.",
                 "Show hospitals in Kathmandu.",
-                "Show schools in Itahari."
+                "Show schools in Itahari.",
+                "Show global hazard map"
             ]
         }
 
-    # Fallback message
+    # Fallback generic text
     return {
         "type": "text",
         "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, traffic, or POIs like clinics or schools."
