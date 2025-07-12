@@ -345,16 +345,9 @@ for msg in chat_history:
             st.markdown(icon, unsafe_allow_html=True)
             st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
         
-            # Show specific disaster map (like fire, flood, landslide) and summary
+            # Show map and summary for disaster type (e.g. flood, landslide, fire)
             show_disaster_map(msg["disaster"], msg.get("region", "india"))
             show_disaster_summary_table(msg["disaster"])
-
-
-
-
-            show_global_hazard_dashboard(hazard_type)
-            st.markdown(f"<span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
-            show_disaster_summary_table(hazard_type)
 
 
 # ------------------- Input Field -------------------
