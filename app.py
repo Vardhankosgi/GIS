@@ -8,6 +8,54 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 
+def show_disaster_map(disaster_type: str):
+
+    bbox = {
+        "assam": [26.2, 89.7, 27.2, 93.6],
+        "himachal": [31.0, 76.5, 32.7, 78.7],
+        "india": [8, 68, 37, 97],
+    }
+
+    layer_defs = {
+        "flood": {
+            "url": "https://sedac.ciesin.columbia.edu/geoserver/wms",
+            "layer": "ndh:ndh-flood-hazard-frequency-distribution",
+            "name": "Flood Hazard",
+            "region": "assam"
+        },
+        "landslide": {
+            "url": "https://sedac.ciesin.columbia.edu/geoserver/wms",
+            "layer": "ndh:ndh-landslide-susceptibility-distribution",
+            "name": "Landslide Hazard",
+            "region": "himachal"
+        },
+        "fire": {
+            "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
+            "layer": "MODIS_Terra_Thermal_Anomalies_Day",
+            "name": "Active Fires (NASA)",
+            "region": "india"
+        }
+    }
+
+    hazard = layer_defs[disaster_type]
+    m = leafmap.Map(center=[
+        (bbox[hazard["region"]][1] + bbox[hazard["region"]][3]) / 2,
+        (bbox[hazard["region"]][0] + bbox[hazard["region"]][2]) / 2],
+        zoom=6
+    )
+
+    m.add_wms_layer(
+        url=hazard["url"],
+        layers=hazard["layer"],
+        name=hazard["name"],
+        format="image/png",
+        transparent=True
+    )
+
+    st.markdown(f"### 🗺️ {hazard['name']} Map ({hazard['region'].capitalize()})")
+    m.to_streamlit(height=600)
+
+
 # ------------------- Static Response Data -------------------
 info_map = {
     "forest_fire": "🔥 **Forest Fire Risk Zones:** Areas in red are highly susceptible due to vegetation and dry climate.",
@@ -123,25 +171,67 @@ updated_keywords = {
 def static_bot_response(message):
     msg = message.lower().strip()
 
+    # Match exact friendly keywords
     for key in friendly_responses:
         if re.fullmatch(rf".*\b{re.escape(key)}\b.*", msg):
             return {"type": "text", "content": friendly_responses[key]}
 
+    # Check if the message matches known POI types and includes a location
     for keyword, tags in updated_keywords.items():
         if keyword in msg and " in " in msg:
-            return {"type": "dynamic_map", "query": msg, "tags": tags}
+            return {
+                "type": "dynamic_map",
+                "query": msg,
+                "tags": tags
+            }
 
-    if any(k in msg for k in ["forest fire", "wildfire"]):
-        return {"type": "global_hazard_map", "content": info_map["forest_fire"]}
-    elif "landslide" in msg:
-        return {"type": "global_hazard_map", "content": info_map["landslide"]}
-    elif "flood" in msg:
-        return {"type": "global_hazard_map", "content": info_map["flood"]}
+    # 🎯 WMS-Based Disaster Map Triggers
+    if "flood" in msg and "assam" in msg:
+        return {
+            "type": "disaster_map",
+            "disaster": "flood",
+            "content": "🌊 Flood Hazard Zones in Assam"
+        }
+    elif "landslide" in msg and "himachal" in msg:
+        return {
+            "type": "disaster_map",
+            "disaster": "landslide",
+            "content": "⛰️ Landslide Risk in Himachal Pradesh"
+        }
+    elif "fire" in msg or "forest fire" in msg:
+        return {
+            "type": "disaster_map",
+            "disaster": "fire",
+            "content": "🔥 Active Forest Fires across India"
+        }
 
-    elif "global hazard" in msg or ("show" in msg and "hazard" in msg):
-        return {"type": "global_hazard_map", "content": info_map["global_hazard"]}
+    # Image-based legacy keywords (optional if you're phasing out base64/asset logic)
+    if "rainfall" in msg and "july" in msg:
+        return respond_with("rainfall_july")
+    elif "traffic" in msg:
+        return respond_with("traffic")
 
-    return {"type": "text", "content": "Hello! 👋 I'm your GIS assistant. Ask me about hazards, POIs, or regions."}
+    # Help / Suggestions
+    elif "help" in msg or "question" in msg:
+        return {
+            "type": "question",
+            "questions": [
+                "Where are the forest fire zones in India?",
+                "Show me landslide risk areas in Himachal.",
+                "Where are floods in Assam?",
+                "Show rainfall intensity for July.",
+                "Show traffic zones in India.",
+                "Show hospitals in Kathmandu.",
+                "Show schools in Itahari."
+            ]
+        }
+
+    # Fallback message
+    return {
+        "type": "text",
+        "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, traffic, or POIs like clinics or schools."
+    }
+
 
 # ------------------- OSM Query -------------------
 def get_osm_map_from_query(query, tags):
@@ -231,7 +321,12 @@ for msg in chat_history:
                 hazard_type = "fire"
             elif "traffic" in content:
                 hazard_type = "traffic"
-        
+
+            elif msg["type"] == "disaster_map":
+                st.markdown(icon, unsafe_allow_html=True)
+                st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
+                show_disaster_map(msg["disaster"])
+
             show_global_hazard_dashboard(hazard_type)
             st.markdown(f"<span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
             show_disaster_summary_table(hazard_type)
