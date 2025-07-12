@@ -236,12 +236,14 @@ def static_bot_response(message):
                     "tags": tags
                 }
             else:
-                # Default to India if no location given
+                # Assume default place if no "in" is found
+                default_place = "India"  # or any city like "Delhi" or "Itahari"
                 return {
                     "type": "dynamic_map",
-                    "query": f"{keyword} in India",
+                    "query": f"{keyword} in {default_place}",
                     "tags": tags
                 }
+
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
