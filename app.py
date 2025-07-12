@@ -1,4 +1,3 @@
-# ------------------- Import Libraries -------------------
 import uuid
 import re
 import streamlit as st
@@ -254,16 +253,26 @@ def static_bot_response(message):
         }
 
     if "help" in msg or "question" in msg:
+        help_text = """
+**Here's what I am capable of answering:**
+
+--1. For Finding Local Places--
+* What it does: Helps you find nearby places like hospitals, schools, and restaurants on a map.
+* Keywords: `hospital`, `school`, `clinic`, `atm`, `restaurant`
+
+--2. For Hazard & Disaster Information--
+* What it does: Displays maps and data tables for specific hazards.
+* Keywords: `flood`, `landslide`, `fire`, `global hazard`
+
+--3. For General Interaction--
+* What it does: Provides friendly responses and general information about the bot.
+* Keywords: `hi`, `hello`, `how can you help`, `what can you do`
+"""
         return {
-            "type": "question",
-            "questions": [
-                "Show global hazard map",
-                "Show flood risk areas",
-                "Where are forest fires?",
-                "Landslide-prone regions in Himachal?",
-                "Show schools in Kathmandu"
-            ]
+            "type": "text",
+            "content": help_text
         }
+    
     return {
         "type": "text",
         "content": "Hello! 👋 I'm your GIS assistant. Ask about floods, landslides, fires, rainfall, or POIs like schools or hospitals."
@@ -293,7 +302,7 @@ def get_osm_map_from_query(query, tags):
 # ------------------- Streamlit UI -------------------
 st.set_page_config("GIS Assistant", layout="wide")
 st.markdown("<h2 style='text-align: center;'>🌐 GIS Bot Assistant</h2>", unsafe_allow_html=True)
-st.caption("Ask me anything related to disaster risks, emergency zones, or map-based hazard insights—I'm here to assist with all your geospatial questions.")
+st.caption("Ask me anything related to disaster risks, emergency zones, or map-based hazard insights—I'm here to assist with all your geospatial questions")
 
 if "conversations" not in st.session_state:
     st.session_state.conversations = {}
