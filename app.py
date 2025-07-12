@@ -276,13 +276,13 @@ def static_bot_response(message):
                 "tags": tags
             }
 
-    # 3. Disaster hazards - normalize input
+
     disaster_aliases = {
         "flood": ["flood", "floods", "flooding"],
         "landslide": ["landslide", "landslides", "land slides"],
         "fire": ["fire", "fires", "wildfire", "forest fire"]
     }
-
+    
     for disaster, variations in disaster_aliases.items():
         for alias in variations:
             if re.search(rf"\b{alias}\b", msg):
@@ -294,6 +294,7 @@ def static_bot_response(message):
                     "region": region,
                     "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.capitalize()}"
                 }
+
 
     # 4. Global hazard view
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
