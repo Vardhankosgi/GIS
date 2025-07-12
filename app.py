@@ -17,6 +17,7 @@ import streamlit.components.v1 as components
 import tempfile
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import av
+from streamlit_webrtc import WebRtcMode
 
 
 
@@ -420,11 +421,12 @@ class AudioProcessor(AudioProcessorBase):
 
 ctx = webrtc_streamer(
     key="speech",
-    mode="sendonly",
+    mode=WebRtcMode.SENDONLY,
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False},
     async_processing=True,
 )
+
 
 if ctx and ctx.audio_processor:
     result = ctx.audio_processor.transcribed
