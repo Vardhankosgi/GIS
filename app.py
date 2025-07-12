@@ -6,6 +6,7 @@ import speech_recognition as sr
 import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
+import platform
 
 # --- Local GeoJSON data for demonstration (now with Points) ---
 FLOOD_GEOJSON = {
@@ -386,18 +387,26 @@ if user_input:
 st.markdown("---")
 st.markdown("🎤 Or use your voice:")
 if st.button("🎤 Start Voice Input"):
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("Listening... Please speak now.")
-        try:
-            audio = recognizer.listen(source, timeout=5)
-            voice_text = recognizer.recognize_google(audio)
-            st.success(f"🗣️ You said: `{voice_text}`")
-            handle_user_input(voice_text)
-            st.rerun()
-        except sr.WaitTimeoutError:
-            st.warning("⏱️ No speech detected. Try again.")
-        except sr.UnknownValueError:
-            st.error("🤷 Could not understand audio.")
-        except sr.RequestError as e:
-            st.error(f"⚠️ Error with speech recognition: {e}")
+    try:
+        recognizer = sr.Recognizer()
+
+        # Check if running in a supported OS environment
+        if platform.system() not in ["Windows", "Linux", "Darwin"]:
+            st.warning("🎙️ Voice input is not supported in this environment.")
+        else:
+            with sr.Microphone() as source:
+                st.info("Listening... Please speak now.")
+                try:
+                    audio = recognizer.listen(source, timeout=5)
+                    voice_text = recognizer.recognize_google(audio)
+                    st.success(f"🗣️ You said: `{voice_text}`")
+                    handle_user_input(voice_text)
+                    st.rerun()
+                except sr.WaitTimeoutError:
+                    st.warning("⏱️ No speech detected. Try again.")
+                except sr.UnknownValueError:
+                    st.error("🤷 Could not understand audio.")
+                except sr.RequestError as e:
+                    st.error(f"⚠️ Error with speech recognition: {e}")
+    except OSError as mic_err:
+        st.warning("🎙️ Microphone not accessible. This feature may not work in cloud or headless environments.")
