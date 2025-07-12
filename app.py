@@ -66,91 +66,83 @@ updated_keywords = {
 
 # ------------------- Functions -------------------
 def create_disaster_map(disaster_type: str, region: str = "india"):
-    supported_regions = ["india"]
-    is_supported_region = region.lower() in supported_regions
-    
-    center_lat = 22.0
-    center_lon = 79.0
-    zoom_level = 4
-    
+    try:
+        # Try to geocode the region
+        gdf = ox.geocode_to_gdf(region)
+        center_lat = gdf.geometry.centroid.y.values[0]
+        center_lon = gdf.geometry.centroid.x.values[0]
+        zoom_level = 7 if region.lower() != "india" else 4
+    except Exception:
+        center_lat = 22.0
+        center_lon = 79.0
+        zoom_level = 4
+        st.warning(f"⚠️ Could not geocode location '{region}'. Showing default India map.")
+
     m = leafmap.Map(center=[center_lat, center_lon], zoom=zoom_level, basemap="CartoDB.Positron")
-    
+
     if disaster_type == "flood":
-        if is_supported_region:
-            st.markdown("🌐 **Note:** The underlying map shows live flood data, with specific points highlighted in colors for demonstration.")
-        else:
-            st.markdown("🌐 **Note:** The underlying map shows live flood data, but specific demonstration points are only available for India.")
-        
+        st.markdown("🌊 **Flood Hazard Map**")
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
             layers="ndh:ndh-flood-hazard-frequency-distribution",
-            name="🌊 Flood Risk (Live)",
+            name="Flood Risk (Live)",
             format="image/png",
             transparent=True
         )
-        
-        if is_supported_region:
-            geojson_data = FLOOD_GEOJSON
-            color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
-            for feature in geojson_data["features"]:
-                lon, lat = feature["geometry"]["coordinates"]
-                risk_level = feature["properties"]["risk_level"]
-                folium.CircleMarker(
-                    location=[lat, lon],
-                    radius=10,
-                    color="black",
-                    weight=1,
-                    fill_color=color_map[risk_level],
-                    fill_opacity=0.6,
-                    tooltip=f"{risk_level} Flood Risk"
-                ).add_to(m)
-        
-    elif disaster_type == "landslide":
-        if is_supported_region:
-            st.markdown("🌐 **Note:** The underlying map shows live landslide data, with specific points highlighted in colors for demonstration.")
-        else:
-            st.markdown("🌐 **Note:** The underlying map shows live landslide data, but specific demonstration points are only available for India.")
+        color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
+        for feature in FLOOD_GEOJSON["features"]:
+            lon, lat = feature["geometry"]["coordinates"]
+            risk_level = feature["properties"]["risk_level"]
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=10,
+                color="black",
+                weight=1,
+                fill_color=color_map[risk_level],
+                fill_opacity=0.6,
+                tooltip=f"{risk_level} Flood Risk"
+            ).add_to(m)
 
+    elif disaster_type == "landslide":
+        st.markdown("⛰️ **Landslide Hazard Map**")
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
             layers="Global_Landslide_Hazard_Map",
-            name="⛰️ Landslide Susceptibility (Live)",
+            name="Landslide Susceptibility (Live)",
             format="image/png",
             transparent=True
         )
-        
-        if is_supported_region:
-            geojson_data = LANDSLIDE_GEOJSON
-            color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
-            for feature in geojson_data["features"]:
-                lon, lat = feature["geometry"]["coordinates"]
-                risk_level = feature["properties"]["risk_level"]
-                folium.CircleMarker(
-                    location=[lat, lon],
-                    radius=10,
-                    color="black",
-                    weight=1,
-                    fill_color=color_map[risk_level],
-                    fill_opacity=0.6,
-                    tooltip=f"{risk_level} Landslide Risk"
-                ).add_to(m)
-        
+        color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
+        for feature in LANDSLIDE_GEOJSON["features"]:
+            lon, lat = feature["geometry"]["coordinates"]
+            risk_level = feature["properties"]["risk_level"]
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=10,
+                color="black",
+                weight=1,
+                fill_color=color_map[risk_level],
+                fill_opacity=0.6,
+                tooltip=f"{risk_level} Landslide Risk"
+            ).add_to(m)
+
     elif disaster_type == "fire":
+        st.markdown("🔥 **Forest Fire Risk Map**")
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
             layers="MODIS_Terra_Thermal_Anomalies_Day",
-            name="🔥 Forest Fires (NASA MODIS)",
+            name="Forest Fires (Live)",
             format="image/png",
             transparent=True
         )
     else:
         st.error("❌ Unknown disaster type.")
         return None
-        
+
     return m
 
+
 def show_disaster_summary_table(hazard_type: str):
-    st.markdown("### 📊 Disaster Summary Table")
     if hazard_type == "landslide":
         st.dataframe({
             "Location": ["Bharmour", "Manikaran", "Kufri", "Rajgarh", "Jogindernagar"],
@@ -250,7 +242,8 @@ def static_bot_response(message):
             "content": "🌐 Global Hazard Map"
         }
     
-    match = re.search(r'(flood|landslide|fire)\s(?:in\s)?([a-z\s]+)?', msg)
+    match = re.search(r'\b(flood|landslide|fire)\b(?:\s+in\s+([a-z\s]+))?', msg)
+
     if match:
         disaster_type = match.group(1)
         region = match.group(2) if match.group(2) else "india"
