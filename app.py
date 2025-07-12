@@ -25,9 +25,47 @@ friendly_responses = {
     "thanks": "You're welcome! Let me know if you need anything else."
 }
 
+def show_disaster_summary_table(hazard_type: str):
+    st.markdown("### 📊 Disaster Summary Table")
+    if hazard_type == "landslide":
+        st.dataframe({
+            "Location": ["Bharmour", "Manikaran", "Kufri", "Rajgarh", "Jogindernagar"],
+            "Slope (°)": [35, 42, 28, 39, 25],
+            "Soil Type": ["Sandy Loam", "Silty Clay", "Loam", "Gravel", "Sandy Clay"],
+            "Rainfall (mm)": [1950, 2300, 1650, 2100, 1750],
+            "Frequency/Year": [4, 6, 2, 5, 1],
+            "Risk Level": ["High", "Very High", "Medium", "High", "Low"]
+        }, use_container_width=True)
+
+    elif hazard_type == "flood":
+        st.dataframe({
+            "District": ["Barpeta", "Dhemaji", "Kochi", "Patna", "Guwahati"],
+            "Flood Level": ["Severe", "High", "Moderate", "Severe", "Moderate"],
+            "Displaced": [23000, 15000, 8000, 12000, 9000],
+            "Rainfall (mm)": [2200, 2100, 1800, 2400, 1900],
+            "Relief Camps": [25, 18, 12, 22, 15]
+        }, use_container_width=True)
+
+    elif hazard_type == "fire":
+        st.dataframe({
+            "Region": ["Shimla", "Chamba", "Sirmaur", "Kullu", "Mandi"],
+            "Avg Temp (°C)": [35, 34, 36, 33, 32],
+            "Incidents": [45, 30, 25, 40, 38],
+            "High Risk Zones": ["Yes", "Yes", "No", "Yes", "Yes"]
+        }, use_container_width=True)
+
+    elif hazard_type == "traffic":
+        st.dataframe({
+            "City": ["Delhi", "Mumbai", "Chennai", "Bengaluru", "Hyderabad"],
+            "Peak Congestion (%)": [78, 72, 65, 80, 69],
+            "Delay (min/km)": [6.5, 5.8, 5.2, 7.0, 6.0],
+            "Traffic Zones": ["Ring Rd", "Western Exp", "Anna Salai", "Outer Ring Rd", "Hitec City"]
+        }, use_container_width=True)
+
+
 # ------------------- Global Hazard Map -------------------
 def show_global_hazard_dashboard(focus="all"):
-    st.markdown("## 🌐 Hazard Map")
+    st.markdown("## 🌐 Global Hazard Map (Color Highlighted)")
 
     m = leafmap.Map(center=[24, 87], zoom=5)
 
@@ -35,18 +73,20 @@ def show_global_hazard_dashboard(focus="all"):
         m.add_wms_layer(
             url="https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi",
             layers="MODIS_Terra_Thermal_Anomalies_Day",
-            name="🔥 Fires (MODIS)",
+            name="🔥 Fire Risk (MODIS)",
             format="image/png",
             transparent=True
         )
+
     if focus in ["all", "flood"]:
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
             layers="ndh:ndh-flood-hazard-frequency-distribution",
-            name="🌊 Flood Hazard",
+            name="🌊 Flood Risk (Color)",
             format="image/png",
             transparent=True
         )
+
     if focus in ["all", "landslide"]:
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
@@ -56,7 +96,18 @@ def show_global_hazard_dashboard(focus="all"):
             transparent=True
         )
 
-    m.to_streamlit(width=1000, height=600)
+    # Optionally add population or elevation for context
+    if focus == "all":
+        m.add_wms_layer(
+            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
+            layers="gpw-v4:gpw-v4-population-density_2020",
+            name="👥 Population Density",
+            format="image/png",
+            transparent=True
+        )
+
+    m.to_streamlit(height=600)
+
 
 
 # ------------------- Query Response -------------------
@@ -169,15 +220,22 @@ for msg in chat_history:
                 st.error(summary)
         elif msg["type"] == "global_hazard_map":
             st.markdown(icon, unsafe_allow_html=True)
-            if "flood" in msg["content"].lower():
-                show_global_hazard_dashboard("flood")
-            elif "landslide" in msg["content"].lower():
-                show_global_hazard_dashboard("landslide")
-            elif "fire" in msg["content"].lower():
-                show_global_hazard_dashboard("fire")
-            else:
-                show_global_hazard_dashboard("all")
+            
+            hazard_type = "all"
+            content = msg.get("content", "").lower()
+            if "flood" in content:
+                hazard_type = "flood"
+            elif "landslide" in content:
+                hazard_type = "landslide"
+            elif "fire" in content or "forest" in content:
+                hazard_type = "fire"
+            elif "traffic" in content:
+                hazard_type = "traffic"
+        
+            show_global_hazard_dashboard(hazard_type)
             st.markdown(f"<span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
+            show_disaster_summary_table(hazard_type)
+
 
 # ------------------- Input Field -------------------
 user_input = st.chat_input("Type your question here...")
