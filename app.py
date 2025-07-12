@@ -1,3 +1,4 @@
+# ------------------- Import Libraries -------------------
 import uuid
 import re
 import streamlit as st
@@ -7,19 +8,10 @@ import osmnx as ox
 from streamlit_folium import st_folium
 import leafmap.foliumap as leafmap
 import platform
-from PIL import Image
-import geopandas as gpd
-from shapely.geometry import Point
-import io
-import base64
-from io import BytesIO
-import streamlit.components.v1 as components
-import tempfile
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import av
-from streamlit_webrtc import WebRtcMode
-
-
+import io
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
+import tempfile
 
 # --- Local GeoJSON data for demonstration (now with Points) ---
 FLOOD_GEOJSON = {
@@ -74,13 +66,9 @@ updated_keywords = {
 
 # ------------------- Functions -------------------
 def create_disaster_map(disaster_type: str, region: str = "india"):
-    # This list now acts as a simple check for available regions
     supported_regions = ["india"]
-    
-    # New logic: Check if the region is supported before attempting to draw points
     is_supported_region = region.lower() in supported_regions
     
-    # We still want to show the map itself, but we'll use a general view
     center_lat = 22.0
     center_lon = 79.0
     zoom_level = 4
@@ -101,7 +89,6 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
         
-        # Only add the static points if the region is "india"
         if is_supported_region:
             geojson_data = FLOOD_GEOJSON
             color_map = {"High": "red", "Medium": "orange", "Low": "lightblue"}
@@ -132,7 +119,6 @@ def create_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
         
-        # Only add the static points if the region is "india"
         if is_supported_region:
             geojson_data = LANDSLIDE_GEOJSON
             color_map = {"High": "darkred", "Medium": "darkorange", "Low": "yellow"}
@@ -254,7 +240,6 @@ def static_bot_response(message):
             "content": "🌐 Global Hazard Map"
         }
     
-    # Check for specific disaster and region
     match = re.search(r'(flood|landslide|fire)\s(?:in\s)?([a-z\s]+)?', msg)
     if match:
         disaster_type = match.group(1)
@@ -324,6 +309,8 @@ if "current_chat_id" not in st.session_state:
     new_id = str(uuid.uuid4())
     st.session_state.conversations[new_id] = []
     st.session_state.current_chat_id = new_id
+if 'last_transcription' not in st.session_state:
+    st.session_state.last_transcription = None
 
 chat_id = st.session_state.current_chat_id
 chat_history = st.session_state.conversations[chat_id]
@@ -386,7 +373,6 @@ for msg in chat_history:
             map_obj = create_disaster_map(msg["disaster"], msg.get("region", "india"))
             if map_obj:
                 map_col, table_col = st.columns([1, 1])  
-
                 with map_col:
                     st.markdown(f"### 🗺️ {msg['disaster'].capitalize()} Risk Map")
                     st_folium(map_obj, height=500, use_container_width=True)
@@ -401,63 +387,50 @@ if user_input:
     handle_user_input(user_input)
     st.rerun()
 
-
-# ------------------- Browser-Based Voice Input ------------------
-
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.recognizer = sr.Recognizer()
-        self.transcribed = None
-
-    def recv(self, frame: av.AudioFrame):
-        wav_bytes = frame.to_ndarray().tobytes()
-        with open("temp_audio.wav", "wb") as f:
-            f.write(wav_bytes)
-        try:
-            with sr.AudioFile("temp_audio.wav") as source:
-                audio = self.recognizer.record(source)
-                text = self.recognizer.recognize_google(audio)
-                self.transcribed = text
-        except Exception as e:
-            self.transcribed = f"❌ Could not understand: {e}"
-        return frame
-
-# ------------------- Browser-Based Voice Input ------------------
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
+# ------------------- Corrected Browser-Based Voice Input ------------------
 
 class AudioProcessor(AudioProcessorBase):
     def __init__(self):
         self.recognizer = sr.Recognizer()
-        self.transcribed = None
+        self.transcribed = ""
 
     def recv(self, frame: av.AudioFrame):
-        wav_bytes = frame.to_ndarray().tobytes()
-        with open("temp_audio.wav", "wb") as f:
-            f.write(wav_bytes)
+        # Convert audio frame to WAV format bytes in memory
+        raw_audio_bytes = frame.to_ndarray().tobytes()
+        
+        # Use an in-memory file-like object to avoid writing to disk
+        audio_stream = io.BytesIO(raw_audio_bytes)
+
         try:
-            with sr.AudioFile("temp_audio.wav") as source:
+            with sr.AudioFile(audio_stream) as source:
                 audio = self.recognizer.record(source)
-                text = self.recognizer.recognize_google(audio)
-                self.transcribed = text
+                self.transcribed = self.recognizer.recognize_google(audio)
+        except sr.UnknownValueError:
+            self.transcribed = "Could not understand audio"
+        except sr.RequestError as e:
+            self.transcribed = f"Could not request results from Google Speech Recognition service; {e}"
         except Exception as e:
-            self.transcribed = f"❌ Could not understand: {e}"
+            self.transcribed = f"An unexpected error occurred: {e}"
+        
         return frame
 
 st.markdown("### 🎙️ Use the microphone here to ask your question", unsafe_allow_html=True)
 
-# ✅ Use WebRtcMode.SENDONLY for correct enum
-ctx = webrtc_streamer(
-    key="speech",
+webrtc_ctx = webrtc_streamer(
+    key="speech_to_text",
     mode=WebRtcMode.SENDONLY,
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False},
     async_processing=True
 )
 
-if ctx and ctx.audio_processor:
-    result = ctx.audio_processor.transcribed
-    if result:
-        st.success(f"🗣️ You said: {result}")
-        handle_user_input(result)
-        ctx.audio_processor.transcribed = None
+if webrtc_ctx and webrtc_ctx.audio_processor:
+    # Check for new transcription and process it
+    new_transcription = webrtc_ctx.audio_processor.transcribed
+    
+    # Only process if there's a new, non-empty transcription
+    if new_transcription and new_transcription != "Could not understand audio" and new_transcription != st.session_state.last_transcription:
+        st.success(f"🗣️ You said: {new_transcription}")
+        handle_user_input(new_transcription)
+        st.session_state.last_transcription = new_transcription # Save the last transcription
         st.rerun()
