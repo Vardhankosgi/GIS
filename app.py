@@ -15,6 +15,8 @@ import base64
 from io import BytesIO
 import streamlit.components.v1 as components
 import tempfile
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+import av
 
 
 
@@ -398,77 +400,37 @@ if user_input:
 
 # ------------------- Browser-Based Voice Input ------------------
 
-# --- Voice input mic icon + JavaScript ---
-st.markdown("🎤 **Or use your voice:**")
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.recognizer = sr.Recognizer()
+        self.transcribed = None
 
-components.html(
-    """
-    <style>
-    #mic-btn {
-        background-color: transparent;
-        border: none;
-        font-size: 36px;
-        cursor: pointer;
-    }
-    </style>
-    <button id="mic-btn">🎤</button>
-    <script>
-    const micBtn = document.getElementById("mic-btn");
+    def recv(self, frame: av.AudioFrame):
+        wav_bytes = frame.to_ndarray().tobytes()
+        with open("temp_audio.wav", "wb") as f:
+            f.write(wav_bytes)
+        try:
+            with sr.AudioFile("temp_audio.wav") as source:
+                audio = self.recognizer.record(source)
+                text = self.recognizer.recognize_google(audio)
+                self.transcribed = text
+        except Exception as e:
+            self.transcribed = f"❌ Could not understand: {e}"
+        return frame
 
-    micBtn.onclick = async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
-        let chunks = [];
-
-        mediaRecorder.ondataavailable = e => chunks.push(e.data);
-        mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'audio/wav' });
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64Audio = reader.result.split(',')[1];
-                const input = document.createElement("input");
-                input.type = "hidden";
-                input.name = "audio_data";
-                input.value = base64Audio;
-                const form = document.createElement("form");
-                form.method = "POST";
-                form.appendChild(input);
-                document.body.appendChild(form);
-                window.parent.postMessage({ type: 'streamlit:setComponentValue', value: base64Audio }, '*');
-            };
-            reader.readAsDataURL(blob);
-        };
-
-        mediaRecorder.start();
-        setTimeout(() => mediaRecorder.stop(), 3000); // 3 seconds max
-    };
-    </script>
-    """,
-    height=80,
-    key="mic_btn"
+ctx = webrtc_streamer(
+    key="speech",
+    mode="sendonly",
+    in_audio=True,
+    audio_processor_factory=AudioProcessor,
+    media_stream_constraints={"audio": True, "video": False},
+    async_processing=True,
 )
 
-# --- Handle audio if received ---
-audio_base64 = st.session_state.get("audio_data") or st.experimental_get_query_params().get("value")
-
-if audio_base64:
-    if isinstance(audio_base64, list):
-        audio_base64 = audio_base64[0]
-
-    audio_bytes = base64.b64decode(audio_base64)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-        tmpfile.write(audio_bytes)
-        tmpfile_path = tmpfile.name
-
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(tmpfile_path) as source:
-        audio = recognizer.record(source)
-        try:
-            text = recognizer.recognize_google(audio)
-            st.success(f"🗣️ You said: {text}")
-            handle_user_input(text)
-            st.session_state.audio_data = None
-            st.rerun()
-        except Exception as e:
-            st.error("❌ Could not understand audio: " + str(e))
-
+if ctx and ctx.audio_processor:
+    result = ctx.audio_processor.transcribed
+    if result:
+        st.success(f"🗣️ You said: {result}")
+        handle_user_input(result)
+        ctx.audio_processor.transcribed = None  # reset
+        st.rerun()
