@@ -457,8 +457,9 @@ if "audio_data" not in st.session_state:
 
 if "audio_data" in st.session_state:
     audio_bytes = base64.b64decode(st.session_state.audio_data)
-    audio = AudioSegment.from_file(BytesIO(audio_bytes), format="wav")
-    audio.export("recorded.wav", format="wav")
+
+    with open("recorded.wav", "wb") as f:
+        f.write(audio_bytes)
 
     recognizer = sr.Recognizer()
     with sr.AudioFile("recorded.wav") as source:
@@ -471,4 +472,5 @@ if "audio_data" in st.session_state:
             st.rerun()
         except Exception as e:
             st.error(f"⚠️ Could not transcribe audio: {e}")
+
 
