@@ -382,39 +382,37 @@ for msg in chat_history:
                     show_disaster_summary_table(msg["disaster"])
 
 # ------------------- Input Field -------------------
+# ------------------- All your existing code goes here -------------------
+# ... (all the code from before, up to the end of the chat input) ...
+
+# ------------------- Input Field -------------------
 user_input = st.chat_input("Type your question here...")
 if user_input:
     handle_user_input(user_input)
     st.rerun()
 
-# ------------------- Corrected Browser-Based Voice Input ------------------
+# ------------------- Voice Input Section -------------------
+st.markdown("<span style='font-size: 16px;'>🎙️ Use the microphone here to ask your question</span>", unsafe_allow_html=True)
 
 class AudioProcessor(AudioProcessorBase):
     def __init__(self):
         self.recognizer = sr.Recognizer()
         self.transcribed = ""
+        self.last_text = ""
 
     def recv(self, frame: av.AudioFrame):
-        # Convert audio frame to WAV format bytes in memory
         raw_audio_bytes = frame.to_ndarray().tobytes()
-        
-        # Use an in-memory file-like object to avoid writing to disk
         audio_stream = io.BytesIO(raw_audio_bytes)
-
         try:
             with sr.AudioFile(audio_stream) as source:
                 audio = self.recognizer.record(source)
-                self.transcribed = self.recognizer.recognize_google(audio)
-        except sr.UnknownValueError:
-            self.transcribed = "Could not understand audio"
-        except sr.RequestError as e:
-            self.transcribed = f"Could not request results from Google Speech Recognition service; {e}"
-        except Exception as e:
-            self.transcribed = f"An unexpected error occurred: {e}"
-        
+                text = self.recognizer.recognize_google(audio)
+                if text and text != self.last_text:
+                    self.transcribed = text
+                    self.last_text = text
+        except (sr.UnknownValueError, sr.RequestError, Exception) as e:
+            st.error(f"Error during transcription: {e}")
         return frame
-
-st.markdown("### 🎙️ Use the microphone here to ask your question", unsafe_allow_html=True)
 
 webrtc_ctx = webrtc_streamer(
     key="speech_to_text",
@@ -424,13 +422,22 @@ webrtc_ctx = webrtc_streamer(
     async_processing=True
 )
 
-if webrtc_ctx and webrtc_ctx.audio_processor:
-    # Check for new transcription and process it
+if webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
+    st.info("Listening... Speak clearly into your microphone.")
     new_transcription = webrtc_ctx.audio_processor.transcribed
     
-    # Only process if there's a new, non-empty transcription
-    if new_transcription and new_transcription != "Could not understand audio" and new_transcription != st.session_state.last_transcription:
-        st.success(f"🗣️ You said: {new_transcription}")
-        handle_user_input(new_transcription)
-        st.session_state.last_transcription = new_transcription # Save the last transcription
-        st.rerun()
+    if new_transcription:
+        # Update session state to display the transcription in the chat input box
+        st.session_state.voice_input = new_transcription
+
+# Create a text input for the voice transcription
+if 'voice_input' in st.session_state:
+    st.text_input("Transcribed Text:", value=st.session_state.voice_input, key='voice_transcription_input')
+    st.session_state.voice_input = "" # Clear the state after use
+
+    if st.button("Submit Voice Query"):
+        query = st.session_state.voice_transcription_input
+        if query:
+            handle_user_input(query)
+            st.session_state.voice_transcription_input = "" # Clear input field
+            st.rerun()
