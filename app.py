@@ -25,10 +25,10 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
     center_lat = (bounds[0] + bounds[2]) / 2
     center_lon = (bounds[1] + bounds[3]) / 2
 
-    # --- CHANGE: Using a lighter basemap to make the colors stand out ---
     m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.Positron")
 
     if disaster_type == "flood":
+        # Keep the original flood layer; it might be working
         m.add_wms_layer(
             url="https://sedac.ciesin.columbia.edu/geoserver/wms",
             layers="ndh:ndh-flood-hazard-frequency-distribution",
@@ -37,10 +37,11 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
             transparent=True
         )
     elif disaster_type == "landslide":
+        # --- CHANGE: Using a more reliable WMS layer from NASA GIBS ---
         m.add_wms_layer(
-            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
-            layers="ndh:ndh-landslide-susceptibility-distribution",
-            name="⛰️ Landslide Zones",
+            url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
+            layers="Global_Landslide_Hazard_Map",
+            name="⛰️ Landslide Hazard (NASA)",
             format="image/png",
             transparent=True
         )
@@ -122,7 +123,6 @@ def show_global_hazard_dashboard(focus="all"):
     center_lat = 20.0
     center_lon = 80.0
 
-    # This function already uses a good basemap
     m = leafmap.Map(center=[center_lat, center_lon], zoom=2, basemap="CartoDB.Positron")
 
     if focus in ["all", "fire"]:
@@ -145,8 +145,8 @@ def show_global_hazard_dashboard(focus="all"):
 
     if focus in ["all", "landslide"]:
         m.add_wms_layer(
-            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
-            layers="ndh:ndh-landslide-susceptibility-distribution",
+            url="https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
+            layers="Global_Landslide_Hazard_Map",
             name="⛰️ Landslide Susceptibility",
             format="image/png",
             transparent=True
