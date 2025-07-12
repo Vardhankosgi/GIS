@@ -279,7 +279,7 @@ def static_bot_response(message):
 
 def get_osm_map_from_query(query, tags):
     try:
-        place = query.split(" in ")[-1].strip().capitalize()
+        place = query.split(" in ")[-1].strip()
         gdf = ox.features_from_place(place, tags)
         if gdf.empty:
             return None, f"⚠️ No data found for {list(tags.values())[0]} in {place}."
