@@ -261,6 +261,7 @@ def show_global_hazard_dashboard(focus="all"):
     m.to_streamlit(height=600)
 
 
+# ------------------- Corrected Functions -------------------
 def static_bot_response(message):
 
     msg = message.lower().strip()
@@ -273,32 +274,9 @@ def static_bot_response(message):
         "kerala", "kochi", "itahari"
     ]
     default_regions = ["world", "global"]
-
-    # 2. Friendly greetings and help
-    friendly_variants = {
-        "hi": ["hi", "hii", "hey", "hello", "heyy"],
-        "how are you": ["how are you", "how r u", "how are u"],
-        "how can you help": ["how can you help", "what can you do"],
-        "thanks": ["thanks", "thank you", "thx"]
-    }
-    for key, variants in friendly_variants.items():
-        for phrase in variants:
-            if phrase in normalized_msg:
-                return {"type": "text", "content": friendly_responses.get(key)}
-
-    # 3. POIs (schools, hospitals, etc.)
-    for keyword, tags in updated_keywords.items():
-        if re.search(rf"\b{keyword}s?\b", msg):
-            match = re.search(rf"\b{keyword}s?\b\s*(in\s+([a-z\s]+))?", msg)
-            region = match.group(2).strip().lower() if match and match.group(2) else "world"
-
-            return {
-                "type": "dynamic_map",
-                "query": f"{keyword} in {region}",
-                "tags": tags
-            }
-
-    # 4. Disaster aliases
+    
+    # 2. Check for Specific Disaster intents first (HIGH PRIORITY)
+    # This prevents generic greetings from overriding a specific request.
     disaster_aliases = {
         "flood": [r"\bflood(?:s|ing)?\b"],
         "landslide": [
@@ -325,14 +303,26 @@ def static_bot_response(message):
                     "content": f"🗺️ {disaster.capitalize()} Hazard Zones in {region.title()}"
                 }
 
-    # 5. Global dashboard
+    # 3. Check for POIs (schools, hospitals, etc.) (MEDIUM PRIORITY)
+    for keyword, tags in updated_keywords.items():
+        if re.search(rf"\b{keyword}s?\b", msg):
+            match = re.search(rf"\b{keyword}s?\b\s*(in\s+([a-z\s]+))?", msg)
+            region = match.group(2).strip().lower() if match and match.group(2) else "world"
+
+            return {
+                "type": "dynamic_map",
+                "query": f"{keyword} in {region}",
+                "tags": tags
+            }
+
+    # 4. Check for Global dashboard (MEDIUM PRIORITY)
     if "global hazard" in msg or "all hazards" in msg or "overall risk" in msg:
         return {
             "type": "global_hazard_map",
             "content": "🌐 Global Hazard Map"
         }
 
-    # 6. Help intent
+    # 5. Check for Help intent (LOW PRIORITY)
     if "help" in msg or "question" in msg:
         help_text = """
         **Here's what I am capable of answering:**
@@ -351,7 +341,21 @@ def static_bot_response(message):
         """
         return {"type": "text", "content": help_text}
 
-    # 7. Fallback
+    # 6. Check for Friendly greetings (LOWEST PRIORITY)
+    # Using re.fullmatch ensures the user's message is *only* a greeting.
+    friendly_variants = {
+        "hi": ["hi", "hii", "hey", "hello", "heyy"],
+        "how are you": ["how are you", "how r u", "how are u"],
+        "how can you help": ["how can you help", "what can you do"],
+        "thanks": ["thanks", "thank you", "thx"]
+    }
+    for key, variants in friendly_variants.items():
+        for phrase in variants:
+            if re.fullmatch(phrase, normalized_msg):
+                return {"type": "text", "content": friendly_responses.get(key)}
+
+
+    # 7. Fallback if no intent is matched
     fallback_disaster = random.choice(list(disaster_aliases.keys()))
     fallback_region = random.choice(known_regions + default_regions)
     return {
