@@ -54,7 +54,8 @@ def show_disaster_map(disaster_type: str, region: str = "india"):
     center_lat = (bounds[0] + bounds[2]) / 2
     center_lon = (bounds[1] + bounds[3]) / 2
 
-    m = leafmap.Map(center=[center_lat, center_lon], zoom=6)
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.Positron")
+
 
     m.add_wms_layer(
         url=hazard["url"],
@@ -127,7 +128,8 @@ def show_disaster_summary_table(hazard_type: str):
 def show_global_hazard_dashboard(focus="all"):
     st.markdown("## 🌐 Global Hazard Map (Color Highlighted)")
 
-    m = leafmap.Map(center=[24, 87], zoom=5)
+    m = leafmap.Map(center=[center_lat, center_lon], zoom=6, basemap="CartoDB.Positron")
+
 
     if focus in ["all", "fire"]:
         m.add_wms_layer(
@@ -314,11 +316,15 @@ for msg in chat_history:
                 st.markdown(f"<span style='font-size:14px'>{summary}</span>", unsafe_allow_html=True)
             else:
                 st.error(summary)
+    
         elif msg["type"] == "global_hazard_map":
             st.markdown(icon, unsafe_allow_html=True)
         
+            # ✅ SAFELY initialize hazard_type
             hazard_type = "all"
-            content = msg.get("content", "").lower()
+        
+            content = msg.get("content", "").lower() if "content" in msg else ""
+        
             if "flood" in content:
                 hazard_type = "flood"
             elif "landslide" in content:
@@ -328,9 +334,12 @@ for msg in chat_history:
             elif "traffic" in content:
                 hazard_type = "traffic"
         
+            # ✅ now safe to call
             show_global_hazard_dashboard(hazard_type)
-            st.markdown(f"<span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
+        
+            st.markdown(f"<span style='font-size:14px'>{msg.get('content','')}</span>", unsafe_allow_html=True)
             show_disaster_summary_table(hazard_type)
+
         
         elif msg["type"] == "disaster_map": 
             st.markdown(icon, unsafe_allow_html=True)
