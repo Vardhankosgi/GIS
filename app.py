@@ -316,7 +316,7 @@ for msg in chat_history:
                 st.error(summary)
         elif msg["type"] == "global_hazard_map":
             st.markdown(icon, unsafe_allow_html=True)
-            
+        
             hazard_type = "all"
             content = msg.get("content", "").lower()
             if "flood" in content:
@@ -327,11 +327,17 @@ for msg in chat_history:
                 hazard_type = "fire"
             elif "traffic" in content:
                 hazard_type = "traffic"
+        
+            show_global_hazard_dashboard(hazard_type)
+            st.markdown(f"<span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
+            show_disaster_summary_table(hazard_type)
+        
+        elif msg["type"] == "disaster_map": 
+            st.markdown(icon, unsafe_allow_html=True)
+            st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
+            show_disaster_map(msg["disaster"], msg.get("region", "india"))
+            show_disaster_summary_table(msg["disaster"])
 
-            elif msg["type"] == "disaster_map":
-                st.markdown(icon, unsafe_allow_html=True)
-                st.markdown(f"**{msg['content']}**", unsafe_allow_html=True)
-                show_disaster_map(msg["disaster"], msg.get("region", "india"))
 
 
             show_global_hazard_dashboard(hazard_type)
