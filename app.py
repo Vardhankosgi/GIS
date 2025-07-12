@@ -26,44 +26,38 @@ friendly_responses = {
 }
 
 # ------------------- Global Hazard Map -------------------
-def show_global_hazard_dashboard():
-    st.markdown("## 🌐 Global Hazard Intelligence Dashboard")
+def show_global_hazard_dashboard(focus="all"):
+    st.markdown("## 🌐 Hazard Map")
 
-    m = leafmap.Map(center=[20, 80], zoom=3)
+    m = leafmap.Map(center=[24, 87], zoom=5)
 
-    m.add_wms_layer(
-        url="https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi",
-        layers="MODIS_Terra_Thermal_Anomalies_Day",
-        name="🔥 Fires (MODIS)",
-        format="image/png",
-        transparent=True
-    )
-
-    m.add_wms_layer(
-        url="https://sedac.ciesin.columbia.edu/geoserver/wms",
-        layers="ndh:ndh-flood-hazard-frequency-distribution",
-        name="🌊 Flood Hazard",
-        format="image/png",
-        transparent=True
-    )
-
-    m.add_wms_layer(
-        url="https://sedac.ciesin.columbia.edu/geoserver/wms",
-        layers="ndh:ndh-landslide-susceptibility-distribution",
-        name="🪨 Landslide Susceptibility",
-        format="image/png",
-        transparent=True
-    )
-
-    m.add_wms_layer(
-        url="https://sedac.ciesin.columbia.edu/geoserver/wms",
-        layers="povmap:povmap-population-count",
-        name="👥 Population Density",
-        format="image/png",
-        transparent=True
-    )
+    if focus in ["all", "fire"]:
+        m.add_wms_layer(
+            url="https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi",
+            layers="MODIS_Terra_Thermal_Anomalies_Day",
+            name="🔥 Fires (MODIS)",
+            format="image/png",
+            transparent=True
+        )
+    if focus in ["all", "flood"]:
+        m.add_wms_layer(
+            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
+            layers="ndh:ndh-flood-hazard-frequency-distribution",
+            name="🌊 Flood Hazard",
+            format="image/png",
+            transparent=True
+        )
+    if focus in ["all", "landslide"]:
+        m.add_wms_layer(
+            url="https://sedac.ciesin.columbia.edu/geoserver/wms",
+            layers="ndh:ndh-landslide-susceptibility-distribution",
+            name="⛰️ Landslide Susceptibility",
+            format="image/png",
+            transparent=True
+        )
 
     m.to_streamlit(width=1000, height=600)
+
 
 # ------------------- Query Response -------------------
 updated_keywords = {
@@ -87,11 +81,12 @@ def static_bot_response(message):
             return {"type": "dynamic_map", "query": msg, "tags": tags}
 
     if any(k in msg for k in ["forest fire", "wildfire"]):
-        return {"type": "text", "content": info_map["forest_fire"]}
+        return {"type": "global_hazard_map", "content": info_map["forest_fire"]}
     elif "landslide" in msg:
-        return {"type": "text", "content": info_map["landslide"]}
+        return {"type": "global_hazard_map", "content": info_map["landslide"]}
     elif "flood" in msg:
-        return {"type": "text", "content": info_map["flood"]}
+        return {"type": "global_hazard_map", "content": info_map["flood"]}
+
     elif "global hazard" in msg or ("show" in msg and "hazard" in msg):
         return {"type": "global_hazard_map", "content": info_map["global_hazard"]}
 
@@ -174,7 +169,15 @@ for msg in chat_history:
                 st.error(summary)
         elif msg["type"] == "global_hazard_map":
             st.markdown(icon, unsafe_allow_html=True)
-            show_global_hazard_dashboard()
+            if "flood" in msg["content"].lower():
+                show_global_hazard_dashboard("flood")
+            elif "landslide" in msg["content"].lower():
+                show_global_hazard_dashboard("landslide")
+            elif "fire" in msg["content"].lower():
+                show_global_hazard_dashboard("fire")
+            else:
+                show_global_hazard_dashboard("all")
+            st.markdown(f"<span style='font-size:14px'>{msg['content']}</span>", unsafe_allow_html=True)
 
 # ------------------- Input Field -------------------
 user_input = st.chat_input("Type your question here...")
